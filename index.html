@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liddelow et al. 2017 · Methods</title>
+<link rel="stylesheet" href="css/viewer.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<div id="controls">
+  <button id="ctlPrev" aria-label="Previous step">⏮</button>
+  <button id="ctlPlay" aria-label="Pause">❚❚</button>
+  <button id="ctlNext" aria-label="Next step">⏭</button>
+  <button id="ctlReplay" aria-label="Replay step">↺</button>
+  <input id="ctlScrub" type="range" min="0" max="20" step="0.02" value="0">
+  <span id="stepLabel">1 / 22</span>
+  <button id="ctlTheme" aria-label="Switch to light">☀</button>
+  <button id="ctlFullscreen" aria-label="Fullscreen">⛶</button>
+</div>
+
+<script src="js/core/math.js"></script>
+<script src="js/core/theme.js"></script>
+<script src="js/core/arbor.js"></script>
+<script src="js/core/builders.js"></script>
+<script src="js/core/cell.js"></script>
+<script src="js/core/round.js"></script>
+<script src="js/core/glyphs.js"></script>
+<script src="js/core/fields.js"></script>
+<script src="js/core/hardware.js"></script>
+
+<script src="js/scenes/actors.js"></script>
+<script src="js/scenes/scene1.js"></script>
+<script src="js/scenes/scene2.js"></script>
+<script src="js/scenes/scene3.js"></script>
+<script src="js/scenes/scene4.js"></script>
+<script src="js/scenes/scene5.js"></script>
+
+<script src="js/app.js"></script>
+<script src="js/controls.js"></script>
+</body>
+</html>
