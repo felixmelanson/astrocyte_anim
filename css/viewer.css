@@ -46,6 +46,7 @@ body.idle #controls { opacity: 0; pointer-events: none; }
 #controls button:hover { background: rgba(255, 255, 255, .16); }
 #controls button:active { background: rgba(255, 255, 255, .24); }
 #controls button.wide { width: auto; padding: 0 12px; font-size: 13px; }
+#controls button svg { display: block; }
 
 #controls input[type="range"] {
   width: 220px;
@@ -64,4 +65,10 @@ body.idle #controls { opacity: 0; pointer-events: none; }
   #controls { gap: 6px; padding: 8px 10px; }
   #controls input[type="range"] { width: 110px; }
   #controls button.wide span.label-text { display: none; }
+  #controls button.phone-hide { display: none; }
+}
+
+/* Touch devices (phones/tablets) have no hover-to-reveal, so never idle-hide the bar */
+@media (pointer: coarse) {
+  body.idle #controls { opacity: 1 !important; pointer-events: auto !important; }
 }

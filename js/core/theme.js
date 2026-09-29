@@ -20,7 +20,7 @@ const PC = { il1: [246, 186, 68], tnf: [166, 134, 255], c1q: [186, 228, 90], oth
 // a value baked into a separate file — both "copies" that used to exist as
 // whole duplicate files differed only in this. lightFrom: -1 = never invert,
 // N = invert to a white page + dark text from step N onward.
-const THEME = { bg: [7, 11, 15], lightFrom: -1 };
+const THEME = { bg: [0, 0, 0], lightFrom: -1 };
 function setThemeMode(mode) { THEME.lightFrom = mode === 'light' ? 2 : -1; }
 
 const COL = { text: [224, 232, 238], dim: [128, 142, 154], teal: [104, 222, 204], coral: [255, 144, 120], get bg() { return THEME.bg; } };

@@ -26,12 +26,15 @@
     el.stepLabel.textContent = `${step + 1} / ${STEPS.length}`;
   }
   function refreshPlayIcon() {
-    el.play.textContent = paused ? '▶' : '❚❚';
+    el.play.querySelector('.icon-play').style.display = paused ? '' : 'none';
+    el.play.querySelector('.icon-pause').style.display = paused ? 'none' : '';
     el.play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
   }
   function refreshThemeIcon() {
-    el.theme.textContent = THEME.lightFrom >= 0 ? '☾' : '☀';
-    el.theme.setAttribute('aria-label', THEME.lightFrom >= 0 ? 'Switch to dark' : 'Switch to light');
+    const light = THEME.lightFrom >= 0;
+    el.theme.querySelector('.icon-sun').style.display = light ? '' : 'none';
+    el.theme.querySelector('.icon-moon').style.display = light ? 'none' : '';
+    el.theme.setAttribute('aria-label', light ? 'Switch to dark' : 'Switch to light');
   }
 
   // app.js calls these hooks on state changes so the UI stays in sync
