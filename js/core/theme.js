@@ -37,8 +37,6 @@ function txt(s, x, y, o = {}) {
   if (o.rot) { ctx.translate(x, y); ctx.rotate(o.rot); ctx.fillText(s, 0, 0); } else ctx.fillText(s, x, y);
   ctx.restore();
 }
-// On-screen titles are placeholders for now. Each call site keeps the original wording in a
-// "// was:" comment so the text can be refined later.
-const TITLE = n => `Title ${n} placeholder`;
-function caption(s, a, y = 122, size = 30) { txt(s, W / 2, y, { a, size, w: 500, align: 'center', col: COL.text }); }
-function subcap(s, a, y = 156) { txt(s, W / 2, y, { a, size: 19, align: 'center', col: COL.dim, ls: .5 }); }
+// Caption copy lives on each STEPS entry (app.js), taken from SCRIPT.md.
+function caption(s, a, y = 122, size = 30) { if (!s) return; txt(s, W / 2, y, { a, size, w: 500, align: 'center', col: COL.text }); }
+function subcap(s, a, y = 156) { if (!s) return; txt(s, W / 2, y, { a, size: 19, align: 'center', col: COL.dim, ls: .5 }); }

@@ -25,21 +25,21 @@ addEventListener('resize', resize); resize();
    Copy (cap / capEnd / sub) comes from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1, k: 0, slug: 'tissue',          cap: TITLE(1) },
-  { sc: 1, k: 1, slug: 'who-caused-it',   cap: TITLE(2) },
-  { sc: 2, k: 0, slug: 'immunopanning',   cap: TITLE(3), sub: TITLE('3 sub') },
-  { sc: 2, k: 1, slug: 'three-cultures',  cap: TITLE(4), sub: TITLE('4 sub') },
-  { sc: 3, k: 0, slug: 'serum-free',      cap: TITLE(5), sub: TITLE('5 sub') },
-  { sc: 5, k: 0, slug: 'readout-primer',  cap: TITLE(6), sub: TITLE('6 sub') },
-  { sc: 4, k: 0, slug: 'relay-intro',     cap: TITLE(7) },
-  { sc: 4, k: 1, slug: 'lps-direct',      cap: TITLE(8), capEnd: TITLE('8 end') },
-  { sc: 4, k: 2, slug: 'microglia-medium', cap: TITLE(9), sub: TITLE('9 sub') },
-  { sc: 4, k: 3, slug: 'cocktail',        cap: TITLE(10), sub: TITLE('10 sub') },
-  { sc: 4, k: 4, slug: 'neutralize',      cap: TITLE(11) },
-  { sc: 4, k: 5, slug: 'acm-to-rgcs',     cap: TITLE(12) },
-  { sc: 4, k: 6, slug: 'dose',            cap: TITLE(13) },
-  { sc: 4, k: 7, slug: 'rgc-controls',    cap: TITLE(14), capEnd: TITLE('14 end') },
-  { sc: 5, k: 1, slug: 'heatmap',         cap: TITLE(15) },
+  { sc: 1, k: 0, slug: 'tissue', cap: 'In tissue, every cell talks to every other cell.' },
+  { sc: 1, k: 1, slug: 'who-caused-it', cap: 'An astrocyte changes. Who caused it?' },
+  { sc: 2, k: 0, slug: 'immunopanning', cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates' },
+  { sc: 2, k: 1, slug: 'three-cultures', cap: 'Three pure cultures', sub: '>99% pure by cell-type qPCR' },
+  { sc: 3, k: 0, slug: 'serum-free', cap: 'Serum-free: a true resting baseline', sub: 'serum components alone push astrocytes toward reactivity' },
+  { sc: 5, k: 0, slug: 'readout-primer', cap: 'One row of genes per condition', sub: 'pan-reactive · A1-specific · A2-specific' },
+  { sc: 4, k: 0, slug: 'relay-intro', cap: 'Move the medium, one hop at a time.' },
+  { sc: 4, k: 1, slug: 'lps-direct', cap: 'Control: LPS straight onto astrocytes', capEnd: 'No TLR4. No response.' },
+  { sc: 4, k: 2, slug: 'microglia-medium', cap: 'Activated-microglia medium → A1', sub: 'resting-microglia medium: no change' },
+  { sc: 4, k: 3, slug: 'cocktail', cap: 'Sufficient? IL-1α + TNF + C1q alone', sub: '3 · 30 · 400 ng/ml · 24 h' },
+  { sc: 4, k: 4, slug: 'neutralize', cap: 'Necessary? Neutralize all three.' },
+  { sc: 4, k: 5, slug: 'acm-to-rgcs', cap: 'A1 astrocyte medium → purified RGCs' },
+  { sc: 4, k: 6, slug: 'dose', cap: 'Dose-dependent RGC death within 24 h' },
+  { sc: 4, k: 7, slug: 'rgc-controls', cap: 'Controls: microglia medium or cytokines alone', capEnd: 'The killer comes from the astrocytes.' },
+  { sc: 5, k: 1, slug: 'heatmap', cap: 'Every condition, one row' },
 ];
 const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => scene3(...a), (...a) => scene4(...a), (...a) => scene5(...a)];
 

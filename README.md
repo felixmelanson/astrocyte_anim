@@ -39,8 +39,8 @@ Each scene file only touches its own step range in `STEPS` (see `js/app.js`). To
 what a step looks like or how long a beat takes, edit the `seg(t, a, b)` / `bump(...)`
 calls inside that scene's function — `t` is seconds since the step started.
 
-`TITLE(n)` placeholders mark on-screen text that still needs real copy; the original
-wording is kept in a `// was:` comment next to each call site.
+On-screen copy (caption, optional sub-caption, end caption) lives on each `STEPS` entry in
+`js/app.js` and mirrors `SCRIPT.md`. Keep on-screen text free of em dashes and double hyphens.
 
 ## Controls
 
