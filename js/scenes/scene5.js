@@ -9,81 +9,63 @@ const GENES = {
 };
 const GLIST = [...GENES.pan.map(g => [g, 0]), ...GENES.a1.map(g => [g, 1]), ...GENES.oth.map(g => [g, 2])];
 const HROWS = [
-  { name: 'Control astrocytes', a1: false }, { name: '+ LPS', a1: false }, { name: '+ resting-microglia medium', a1: false },
+  { name: 'Resting astrocytes', a1: false }, { name: '+ LPS', a1: false }, { name: '+ resting-microglia medium', a1: false },
   { name: '+ LPS-microglia medium', a1: true }, { name: '+ IL-1α + TNF + C1q', a1: true }, { name: '+ LPS-microglia medium + nAbs', a1: false },
 ];
 (() => { const R = rng(55); HROWS.forEach(row => { row.z = GLIST.map(([g, grp]) => row.a1 ? (grp === 0 ? .8 + R() * 1.2 : grp === 1 ? 1.0 + R() * 1.0 : -1.1 + R() * 1.5) : (-1.5 + R() * 1.25)); }); })();
 
-const BIG_R = new Cell('astro', 0, 0, 777, 2.0, { drift: 4 });
-const BIG_A = new Cell('astro', 0, 0, 778, 2.0, { drift: 4 });
 function heatCol(z) { return z < 0 ? mix([28, 34, 42], [46, 150, 168], clamp(-z / 2)) : mix([28, 34, 42], [255, 122, 96], clamp(z / 2)); }
-function lightCol(z, on) { const L = clamp((z + .2) / 1.7) * on; return mix([34, 42, 52], [255, 146, 118], L); }
-function scene5(k, t, gt) {
-  const LW = 12, LG = 3, GG = 14, rowW = 37 * (LW + LG) - LG + 2 * GG;
-  const HX0 = 640, HY0 = 440, CW = 28, CG = 8, RH = 42;
-  const lx = (col, grp, x0) => x0 + col * (LW + LG) + grp * GG;
-  const hx = (col, grp) => HX0 + col * CW + grp * CG;
-  const pull = k === 1 ? ease(seg(t, 0, 1.6)) : 0;
-  const morph = k === 1 ? ease(seg(t, .8, 2.6)) : 0;
-  const hcol = k === 1 ? ease(seg(t, 1.8, 3.2)) : 0;
-  const labA = k === 1 ? seg(t, 2.8, 3.8) : 0;
-  // astrocytes
-  const cells = [[BIG_R, 620, 0, 'Resting'], [BIG_A, 1300, 1, 'A1']];
-  cells.forEach(([c, x, r, lab]) => {
-    const a = 1 - pull, yy = lerp(430, 250, pull), sc = lerp(1, .6, pull);
-    if (a <= .004) return;
-    ctx.save(); ctx.translate(x, yy); ctx.scale(sc, sc); c.draw(ctx, { t: gt, r, a }); ctx.restore();
-    txt(lab, x, 215 + (1 - a) * -40, { a: a * seg(t, k ? 0 : .3, k ? .1 : 1), size: 26, w: 600, align: 'center', col: r ? COL.coral : COL.teal });
+const HM = { x0: 640, cw: 28, cg: 8, rh: 42 };
+const hx = (col, grp) => HM.x0 + col * HM.cw + grp * HM.cg;
+const HGROUPS = [[0, 12, 'Pan-reactive'], [13, 24, 'A1-specific'], [25, 36, 'A2-specific']];
+// group bars + names + gene names. grow(gi) = bar sweep 0..1, nameA(gi) / geneA(gi) = label alphas
+function drawHeatHeader(y0, grow, nameA, geneA) {
+  const gc = [[196, 206, 214], COL.coral, [110, 132, 162]];
+  HGROUPS.forEach(([c0, c1, name], gi) => {
+    const x0 = hx(c0, gi), x1 = hx(c1, gi) + HM.cw - 1.5, g = grow(gi);
+    if (g > 0) { ctx.save(); ctx.fillStyle = rgb(gc[gi]); ctx.fillRect(x0, y0 - 92, (x1 - x0) * g, 10); ctx.restore(); }
+    txt(name, (x0 + x1) / 2, y0 - 102, { a: nameA(gi), size: 16, w: 600, align: 'center', col: gc[gi] });
   });
-  // rows: resting → heatmap row 0, A1 → heatmap row 3; others fly in
-  const rowsDef = [{ hr: 0, x0: 620 - rowW / 2, on: 0 }, { hr: 3, x0: 1300 - rowW / 2, on: 1 }];
+  GLIST.forEach(([g, grp], col) => txt(g, hx(col, grp) + 18, y0 - 8, { a: geneA(grp), size: 12.5, it: true, rot: -Math.PI / 2, col: [176, 188, 198] }));
+}
+// one row: fill = 0 → empty outlined cells, 1 → z-score colours
+function drawHeatRow(y, z, a, fill, label, labA, labCol) {
+  if (a <= .004) return;
+  ctx.save(); ctx.globalAlpha *= a;
+  GLIST.forEach(([g, grp], col) => {
+    const on = z ? sstep(seg(fill, col / 37 * .6, col / 37 * .6 + .4)) : 0;
+    rr(hx(col, grp), y, HM.cw - 1.5, HM.rh - 2, 1.5);
+    if (on > 0) { ctx.fillStyle = rgb(heatCol(z[col]), on); ctx.fill(); }
+    if (on < 1) { ctx.strokeStyle = `rgba(236,242,246,${.22 * (1 - on)})`; ctx.lineWidth = 1; ctx.stroke(); }
+  });
+  ctx.restore();
+  txt(label, HM.x0 - 16, y + 27, { a: a * labA, size: 16, align: 'right', col: labCol || [196, 206, 214] });
+}
+function scene5(k, t, gt, S) {
+  if (k === 0) {
+    // readout primer: the gene panel, one empty row, no conditions yet
+    const y0 = 560;
+    drawHeatHeader(y0, gi => ease(seg(t, .5 + gi * .3, 1.2 + gi * .3)), gi => seg(t, .8 + gi * .3, 1.4 + gi * .3), gi => seg(t, 1.4 + gi * .3, 2.0 + gi * .3));
+    drawHeatRow(y0, null, seg(t, 2.6, 3.2), 0, 'Resting astrocytes', seg(t, 2.9, 3.5));
+    vignette();
+    caption(S.cap, seg(t, .3, 1.1)); subcap(S.sub, seg(t, .9, 1.7));
+    return;
+  }
+  // every condition, one row
+  const y0 = 440, hA = seg(t, .2, .8);
+  drawHeatHeader(y0, () => hA, () => hA, () => hA);
   HROWS.forEach((row, ri) => {
-    const main = rowsDef.find(d => d.hr === ri);
-    let ra, yOff = 0;
-    if (main) ra = 1; else { ra = k === 1 ? seg(t, 1.6 + ri * .12, 2.3 + ri * .12) : 0; yOff = (1 - ra) * 40; }
-    if (ra <= .004) return;
-    // cassette frame
-    if (main && morph < 1) {
-      ctx.save(); ctx.globalAlpha *= (1 - morph); rr(main.x0 - 12, 700, rowW + 24, 44, 10); ctx.fillStyle = 'rgba(255,255,255,.03)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.stroke(); ctx.restore();
-      ['PAN-REACTIVE', 'A1-SPECIFIC', 'ISCHEMIA-INDUCED'].forEach((g, gi) => {
-        const c0 = [0, 13, 25][gi], c1 = [12, 24, 36][gi];
-        txt(g, (lx(c0, gi, main.x0) + lx(c1, gi, main.x0) + LW) / 2, 690, { a: (1 - morph) * seg(t, k ? 0 : .5, k ? .1 : 1.2), size: 12, w: 600, ls: 1.8, align: 'center', col: gi === 1 ? COL.coral : COL.dim });
-      });
-    }
-    GLIST.forEach(([g, grp], col) => {
-      const z = row.z[col];
-      let on = 1;
-      if (main && main.on && k === 0) on = sstep(seg(t, 1.4 + col * .05, 1.7 + col * .05));
-      if (main && !main.on) on = 1;
-      const x = main ? lerp(lx(col, grp, main.x0), hx(col, grp), morph) : hx(col, grp);
-      const y = main ? lerp(710, HY0 + ri * RH, morph) : HY0 + ri * RH + yOff;
-      const w = lerp(LW, CW - 1.5, main ? morph : 1), h = lerp(24, RH - 2, main ? morph : 1);
-      const c = mix(lightCol(z, main ? on : 1), heatCol(z), main ? hcol : 1);
-      ctx.save(); ctx.globalAlpha *= ra;
-      rr(x, y, w, h, lerp(3, 1.5, main ? morph : 1)); ctx.fillStyle = rgb(c); ctx.fill();
-      if (main && hcol < 1 && z > 0 && on > 0) { const L = clamp((z + .2) / 1.7) * on * (1 - hcol); if (L > .3) { ctx.shadowColor = rgb([255, 140, 110], .6 * L); ctx.shadowBlur = 8; ctx.fill(); } }
-      ctx.restore();
-    });
-    txt(row.name, HX0 - 16, HY0 + ri * RH + 27, { a: labA * ra, size: 16, align: 'right', col: row.a1 ? [236, 210, 200] : [196, 206, 214] });
+    const t0 = ri === 0 ? .4 : 1.0 + ri * .45, ra = seg(t, t0, t0 + .5);
+    drawHeatRow(y0 + ri * HM.rh + (1 - ra) * 30, row.z, ra, seg(t, t0 + .2, t0 + 1.2), row.name, 1, row.a1 ? [236, 210, 200] : [196, 206, 214]);
   });
-  // heatmap labels
-  if (labA > 0) {
-    const gx = [[0, 12, 0], [13, 24, 1], [25, 36, 2]];
-    const gc = [[196, 206, 214], COL.coral, [110, 132, 162]], gn = ['Pan-reactive', 'A1-specific', 'Ischemia-induced'];
-    gx.forEach(([c0, c1, gi]) => {
-      const x0 = hx(c0, gi), x1 = hx(c1, gi) + CW - 1.5;
-      ctx.save(); ctx.globalAlpha *= labA; ctx.fillStyle = rgb(gc[gi]); ctx.fillRect(x0, HY0 - 92, x1 - x0, 10); ctx.restore();
-      txt(gn[gi], (x0 + x1) / 2, HY0 - 102, { a: labA, size: 16, w: 600, align: 'center', col: gc[gi] });
-    });
-    GLIST.forEach(([g, grp], col) => txt(g, hx(col, grp) + 18, HY0 - 8, { a: labA, size: 12.5, it: true, rot: -Math.PI / 2 + .0, col: [176, 188, 198] }));
-    // colour bar
-    const bx = hx(36, 2) + CW - 1.5 - 260, by = HY0 + 6 * RH + 34;
+  const labA = seg(t, 4.0, 4.8);
+  if (labA > 0) {   // colour bar
+    const bx = hx(36, 2) + HM.cw - 1.5 - 260, by = y0 + 6 * HM.rh + 34;
     for (let i = 0; i < 52; i++) { const z = -2 + 4 * i / 51; ctx.save(); ctx.globalAlpha *= labA; ctx.fillStyle = rgb(heatCol(z)); ctx.fillRect(bx + i * 5, by, 5.2, 12); ctx.restore(); }
     txt('−2', bx, by + 32, { a: labA, size: 13, align: 'center', col: COL.dim }); txt('0', bx + 130, by + 32, { a: labA, size: 13, align: 'center', col: COL.dim }); txt('+2', bx + 260, by + 32, { a: labA, size: 13, align: 'center', col: COL.dim });
     txt('ΔΔCt z-score', bx - 14, by + 11, { a: labA, size: 14, align: 'right', col: COL.dim });
-    txt('illustrative values · real data: Fig. 1a', HX0 - 16, HY0 + 6 * RH + 46, { a: labA, size: 16, it: true, align: 'right', col: COL.dim });
+    txt('illustrative values · real data: Fig. 1a', HM.x0 - 16, y0 + 6 * HM.rh + 46, { a: labA, size: 16, it: true, align: 'right', col: COL.dim });
   }
   vignette();
-  if (k === 0) caption(TITLE(23), seg(t, .4, 1.2));   // was: 'Readout: reactive gene cassettes by microfluidic qPCR'
-  else caption(TITLE(24), seg(t, 2.8, 3.6) * (1 - seg(t, 7, 8)));   // was: 'Every condition becomes one row.'
+  caption(S.cap, seg(t, .3, 1.1));
 }

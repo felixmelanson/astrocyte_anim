@@ -6,7 +6,7 @@
    just means freezing t and re-rendering — no separate "seek" logic needed.
    ===================================================================== */
 (function () {
-  const SCRUB_MAX = 20; // seconds; generous ceiling covering the longest per-step sequences
+  const scrubMax = () => (STEPS[step].dur || 30) + 1;   // seconds; each step's settle time + a little
 
   const el = {
     prev: document.getElementById('ctlPrev'),
@@ -19,7 +19,7 @@
     fullscreen: document.getElementById('ctlFullscreen'),
   };
 
-  el.scrub.max = SCRUB_MAX;
+  el.scrub.max = scrubMax();
   el.scrub.step = 0.02;
 
   function refreshStepLabel() {
@@ -39,7 +39,7 @@
 
   // app.js calls these hooks on state changes so the UI stays in sync
   // whether it was a button, a key, or a URL hash jump that caused them.
-  onStepChange = () => { refreshStepLabel(); el.scrub.value = 0; };
+  onStepChange = () => { refreshStepLabel(); el.scrub.max = scrubMax(); el.scrub.value = 0; };
   onPlayStateChange = refreshPlayIcon;
   onThemeChange = refreshThemeIcon;
 
@@ -47,7 +47,7 @@
   el.next.addEventListener('click', () => go(step + 1));
   el.replay.addEventListener('click', () => {
     stepStart = performance.now(); prevStep = step; pauseT = 0; el.scrub.value = 0;
-    if (paused) render(step, 0, 50);
+    if (paused) { pauseGT = performance.now() / 1000; render(step, 0, pauseGT); }
   });
   el.play.addEventListener('click', () => setPaused(!paused));
   el.theme.addEventListener('click', () => { setThemeMode(THEME.lightFrom >= 0 ? 'dark' : 'light'); refreshThemeIcon(); });
@@ -62,7 +62,7 @@
   setInterval(() => {
     if (dragging) return;
     const t = paused ? pauseT : (performance.now() - stepStart) / 1000;
-    el.scrub.value = Math.min(SCRUB_MAX, t);
+    el.scrub.value = Math.min(scrubMax(), t);
   }, 80);
 
   // click a HUD step-dot on the canvas to jump straight to it; click elsewhere advances

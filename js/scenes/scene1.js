@@ -148,7 +148,7 @@ function drawWhoOverlay(tt, gt, fa) {
     txt('?', qx, qy, { a: a * seg(tt, 2.2 + n * .12, 2.8 + n * .12), size: 34, w: 300, align: 'center', col: [236, 242, 246] });
   });
 }
-function scene1(k, t, gt) {
+function scene1(k, t, gt, S) {
   const z = 1.02 + .02 * Math.sin(gt * .045);
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2 + Math.sin(gt * .03) * 10, -H / 2);
   const heroR = k === 1 ? .36 * ease(seg(t, 1.2, 5.5)) : 0;
@@ -161,8 +161,7 @@ function scene1(k, t, gt) {
   if (TISSUE_LABELS) drawTissueLabels(i => k === 0 ? ease(seg(t, 2.2 + i * .22, 2.8 + i * .22)) : 1 - seg(t, 0, .6));
   ctx.restore();
   vignette(); edgeShade();
-  if (k === 0) caption(TITLE(1), seg(t, .8, 1.8));      // was: 'In tissue, every cell talks to every other cell.'
-  else caption(TITLE(2), seg(t, 1.5, 2.5));             // was: 'An astrocyte changes. Who caused it?'
+  caption(S.cap, k === 0 ? seg(t, .8, 1.8) : seg(t, 1.5, 2.5));
 }
 function drawSignal(A, B, p, gt, a, toward) {
   if (a <= .004) return;
@@ -263,6 +262,6 @@ function tissueHandoff(t, gt) {
     ctx.restore();
   }
   ctx.save(); ctx.globalAlpha *= 1 - ease(seg(t, 1.2, 2.0)); vignette(); edgeShade(); ctx.restore();
-  if (prevStep === 1) caption(TITLE(2), seg(pt, 1.5, 2.5) * (1 - seg(t, 0, .4)));
+  if (prevStep === 1) caption(STEPS[1].cap, seg(pt, 1.5, 2.5) * (1 - seg(t, 0, .4)));
   vignette();
 }

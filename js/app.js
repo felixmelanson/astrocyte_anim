@@ -6,11 +6,12 @@
                         L = toggle light/dark   P = play/pause   URL hash #12 jumps to step 12
    ===================================================================== */
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const RENDER_MODE = new URLSearchParams(location.search).has('render');   // tools/*.mjs: no HUD, exact 1920×1080
 let SCL = 1, DPR = 1;
 function resize() {
-  DPR = Math.min(2, window.devicePixelRatio || 1);
+  DPR = RENDER_MODE ? 1 : Math.min(2, window.devicePixelRatio || 1);
   const w = innerWidth, h = innerHeight;
-  SCL = Math.min(w / W, h / H);
+  SCL = RENDER_MODE ? 1 : Math.min(w / W, h / H);
   const cw = W * SCL, ch = H * SCL;
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
   cv.style.left = ((w - cw) / 2) + 'px'; cv.style.top = ((h - ch) / 2) + 'px';
@@ -19,21 +20,28 @@ function resize() {
 addEventListener('resize', resize); resize();
 
 /* =====================================================================
-   STEPS — one entry per presenter "click", tagged with its scene number
+   STEPS — one entry per presenter "click".
+   sc = scene (drives fades / dot separators), k = index inside that scene's function.
+   Copy (cap / capEnd / sub) comes from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1 }, { sc: 1 },
-  { sc: 2 }, { sc: 2 }, { sc: 2 }, { sc: 2 },
-  { sc: 3 }, { sc: 3 },
-  { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 }, { sc: 4 },
-  { sc: 5 }, { sc: 5 },
+  { sc: 1, k: 0, slug: 'tissue',          cap: TITLE(1) },
+  { sc: 1, k: 1, slug: 'who-caused-it',   cap: TITLE(2) },
+  { sc: 2, k: 0, slug: 'immunopanning',   cap: TITLE(3), sub: TITLE('3 sub') },
+  { sc: 2, k: 1, slug: 'three-cultures',  cap: TITLE(4), sub: TITLE('4 sub') },
+  { sc: 3, k: 0, slug: 'serum-free',      cap: TITLE(5), sub: TITLE('5 sub') },
+  { sc: 5, k: 0, slug: 'readout-primer',  cap: TITLE(6), sub: TITLE('6 sub') },
+  { sc: 4, k: 0, slug: 'relay-intro',     cap: TITLE(7) },
+  { sc: 4, k: 1, slug: 'lps-direct',      cap: TITLE(8), capEnd: TITLE('8 end') },
+  { sc: 4, k: 2, slug: 'microglia-medium', cap: TITLE(9), sub: TITLE('9 sub') },
+  { sc: 4, k: 3, slug: 'cocktail',        cap: TITLE(10), sub: TITLE('10 sub') },
+  { sc: 4, k: 4, slug: 'neutralize',      cap: TITLE(11) },
+  { sc: 4, k: 5, slug: 'acm-to-rgcs',     cap: TITLE(12) },
+  { sc: 4, k: 6, slug: 'dose',            cap: TITLE(13) },
+  { sc: 4, k: 7, slug: 'rgc-controls',    cap: TITLE(14), capEnd: TITLE('14 end') },
+  { sc: 5, k: 1, slug: 'heatmap',         cap: TITLE(15) },
 ];
-// Section headers (top-left label) were removed from the screen. Kept here for reference:
-//   scene 1 — 01 WHY PURIFY          · problem · in tissue, cause is ambiguous
-//   scene 2 — 02 IMMUNOPANNING       · isolates · each cell type
-//   scene 3 — 03 SERUM-FREE CULTURE  · isolates · a true resting baseline
-//   scene 4 — 04 THE RELAY           · isolates · one signal per hop
-//   scene 5 — 05 READOUT             · measures · the reactive gene signature
+const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => scene3(...a), (...a) => scene4(...a), (...a) => scene5(...a)];
 
 /* =====================================================================
    FRAME / HUD
@@ -47,11 +55,12 @@ function vignette() {
   if (!VIG) { VIG = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * 1.02); VIG.addColorStop(0, 'rgba(0,0,0,0)'); VIG.addColorStop(1, 'rgba(0,0,0,.55)'); }
   ctx.fillStyle = VIG; ctx.fillRect(0, 0, W, H);
 }
-let step = 0, prevStep = -1, prevT = 0, stepStart = performance.now(), hud = true, frozen = null;
+let step = 0, prevStep = -1, prevT = 0, stepStart = performance.now(), hud = !RENDER_MODE, frozen = null;
 function go(k) {
   k = clamp(k, 0, STEPS.length - 1) | 0; if (k === step) return;
   const now = performance.now(); prevT = paused ? pauseT : (now - stepStart) / 1000;
   prevStep = step; step = k; stepStart = now; pauseT = 0;
+  if (paused) pauseGT = now / 1000;
   history.replaceState(null, '', '#' + step);
   onStepChange();
 }
@@ -78,26 +87,26 @@ function applyTheme(k, t) {
   if (Math.abs(fl - FLASH_A) > .002) { FLASH_A = fl; FLASH.style.opacity = fl.toFixed(3); }
   return on;
 }
+// the previous step's caption fades out when stepping forward inside a scene
+function carryCaption(k, t) {
+  if (prevStep !== k - 1 || prevStep < 0 || STEPS[prevStep].sc !== STEPS[k].sc) return;
+  const P = STEPS[prevStep], S = STEPS[k], a = 1 - seg(t, 0, .45); if (a <= 0) return;
+  const pc = P.capEnd || P.cap;
+  if (pc && pc !== S.cap) caption(pc, a);
+  if (P.sub && !P.capEnd && P.sub !== S.sub) subcap(P.sub, a);
+}
 function render(k, t, gt) {
   ctx.setTransform(SCL * DPR, 0, 0, SCL * DPR, 0, 0);
   const light = applyTheme(k, t);
   ctx.fillStyle = light ? '#000' : rgb(COL.bg); ctx.fillRect(0, 0, W, H);
-  const sc = STEPS[k].sc;
-  const firstOfScene = k === 0 || STEPS[k - 1].sc !== sc;
-  const si = k - STEPS.findIndex(s => s.sc === sc);
-  ctx.save();
-  if (sc === 1) scene1(si, t, gt);
-  else if (sc === 2) scene2(si, t, gt);
-  else if (sc === 3) scene3(si, t, gt);
-  else if (sc === 4) scene4(k, t, gt);
-  else scene5(si, t, gt);
-  ctx.restore();
-  // scene fade from black when entering a new scene
+  const S = STEPS[k], sc = S.sc;
+  ctx.save(); SCENES[sc](S.k, t, gt, S); ctx.restore();
+  carryCaption(k, t);
+  // scene fade (from the page colour) when entering a new scene
   const enteredScene = prevStep < 0 || STEPS[prevStep].sc !== sc;
-  const seamless = sc === 2 && si === 0 && handoffPlays() && prevStep >= 0;   // tissue hand-off replaces the fade
+  const seamless = sc === 2 && S.k === 0 && handoffPlays() && prevStep >= 0;   // tissue hand-off replaces the fade
   if (enteredScene && !seamless) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = `rgba(0,0,0,${f})`; ctx.fillRect(0, 0, W, H); } }
-  // step dots (H toggles). The old top-left section header was drawn here:
-  //   txt(num, 64, 58, …coral…); txt(name, 98, 58, …); txt(sub, 64, 82, …italic…)  — see section list above
+  // step dots (H toggles)
   if (hud) {
     for (let i = 0; i < STEPS.length; i++) {
       const x = W - 64 - (STEPS.length - 1 - i) * 13, on = i === k;
@@ -112,17 +121,20 @@ function render(k, t, gt) {
 /* ---------------- playback: play / pause / scrub ----------------
    Every scene function is a pure(ish) function of (step index, local time t,
    global time gt), so freezing t and re-rendering is enough to scrub. ---- */
-let paused = false, pauseT = 0;
+let paused = false, pauseT = 0, pauseGT = 0;
 function setPaused(p) {
   p = !!p; if (p === paused) return;
-  if (p) pauseT = (performance.now() - stepStart) / 1000;
-  else stepStart = performance.now() - pauseT * 1000;
+  const now = performance.now();
+  if (p) { pauseT = (now - stepStart) / 1000; pauseGT = now / 1000; }
+  else stepStart = now - pauseT * 1000;
   paused = p;
   onPlayStateChange();
 }
 function scrubTo(t) {
+  if (!paused) setPaused(true);
+  pauseGT += Math.max(0, t) - pauseT;          // idle drift follows the scrub head
   pauseT = Math.max(0, t);
-  if (!paused) setPaused(true); else onPlayStateChange();
+  onPlayStateChange();
 }
 function onStepChange() {}   // overridden by controls.js once the UI exists
 function onPlayStateChange() {}
@@ -130,14 +142,23 @@ function onThemeChange() {}
 
 function frame(now) {
   if (!frozen) {
-    if (paused) render(step, pauseT, pauseT + 50);
+    if (paused) render(step, pauseT, pauseGT);
     else render(step, (now - stepStart) / 1000, now / 1000);
   }
   requestAnimationFrame(frame);
 }
 (function init() {
+  if (RENDER_MODE) document.body.classList.add('render');
   const h = parseInt(location.hash.slice(1)); if (!isNaN(h)) { step = clamp(h, 0, STEPS.length - 1) | 0; }
   requestAnimationFrame(frame);
 })();
-// test hook: render step k at time t (deterministic)
-window.__seek = (k, t, gt, prev, pt) => { frozen = true; step = k; prevStep = prev ?? k; prevT = pt ?? 99; render(k, t, gt ?? (t + 50)); };
+
+/* ---------------- deterministic hooks for tools/*.mjs ----------------
+   gtBase(k): global (idle-drift) clock at the start of step k when every step
+   before it played for exactly its `dur`, so consecutive clips line up. */
+const gtBase = k => 50 + STEPS.slice(0, k).reduce((s, x) => s + (x.dur || 0), 0);
+window.__seek = (k, t, gt, prev, pt) => { frozen = true; step = k; prevStep = prev ?? k; prevT = pt ?? 99; render(k, t, gt ?? (gtBase(k) + t)); };
+window.__anim = {
+  steps: () => STEPS.map((s, i) => ({ i, sc: s.sc, slug: s.slug, dur: s.dur, busy: s.busy, cap: s.cap })),
+  gtBase, setTheme: m => { setThemeMode(m); onThemeChange(); },
+};

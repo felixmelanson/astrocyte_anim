@@ -72,85 +72,85 @@ function typeLegend(x, y, a, types = TYPES) {
 }
 const LEG_RD = { astro: new Round('astro', 3), micro: new Round('micro', 4), endo: new Round('endo', 5), oligo: new Round('oligo', 6), neuron: new Round('neuron', 8) };
 
-/* ---- Title 2 → Title 3 hand-off lives in scene1.js (tissueHandoff) since it reuses the tissue snapshot ---- */
-function scene2(k, t, gt) {
+/* ---- the Scene 1 → 2 hand-off lives in scene1.js (tissueHandoff) since it reuses the tissue snapshot ---- */
+// Step k = 0 is one continuous sequence: [hand-off] → dissociation → negative plates → positive plate.
+const DISS = 4.8;                       // dissociation beat; panning time T starts after it
+function scene2(k, t, gt, S) {
   if (k === 0) {
     if (handoffPlays()) { if (t < TR) { tissueHandoff(t, gt); return; } t -= TR; }
-    // P5 cortex block → papain → single-cell suspension
-    const bx = 960, by = 520, bw = 420, bh = 270;
-    const blockA = 1 - seg(t, 2.0, 3.2);
-    if (blockA > 0) {
-      ctx.save(); ctx.globalAlpha *= blockA;
-      const loosen = seg(t, 1.4, 3.0);
-      ctx.save(); rr(bx - bw / 2 - loosen * 20, by - bh / 2 - loosen * 14, bw + loosen * 40, bh + loosen * 28, 26 + loosen * 60); ctx.clip();
-      ctx.translate(bx, by); ctx.scale(.36, .36); ctx.translate(-W / 2, -H / 2); drawTissue(ctx, gt); ctx.restore();
-      rr(bx - bw / 2 - loosen * 20, by - bh / 2 - loosen * 14, bw + loosen * 40, bh + loosen * 28, 26 + loosen * 60);
-      ctx.strokeStyle = 'rgba(200,220,230,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.restore();
-    }
-    txt('P5 rodent cortex', bx, by - bh / 2 - 34, { a: seg(t, .2, .8) * blockA, size: 22, w: 500, align: 'center' });
-    // papain drops
-    for (let i = 0; i < 5; i++) {
-      const t0 = .5 + i * .18, u = seg(t, t0, t0 + .7); if (u <= 0 || u >= 1) continue;
-      const x = bx - 120 + i * 60, y = lerp(by - 260, by - bh / 2 + 20, eOut(u) * u);
-      ctx.fillStyle = `rgba(226,236,242,${.8 * (1 - seg(u, .85, 1))})`;
-      ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.quadraticCurveTo(x + 5, y, x, y + 4); ctx.quadraticCurveTo(x - 5, y, x, y - 9); ctx.fill();
-    }
-    txt('papain', bx + 190, by - 210, { a: bump(t, .5, 1, 2.4, 3), size: 18, it: true, col: COL.dim });
-    const ca = seg(t, 1.9, 2.8);
-    for (const c of SUS) {
-      const u = ease(seg(t, 2.1, 4.2)), x = lerp(c.bx, c.cx, u), y = lerp(c.by, c.cy, u);
-      c.rd.draw(ctx, x + Math.sin(gt * 1.2 + c.ph) * 3 * u, y + Math.cos(gt + c.ph) * 3 * u, gt, { a: ca, s: lerp(.8, 1.4, ca) });
-    }
-    caption(TITLE(3), seg(t, 3.4, 4.2));   // was: 'Dissociate: papain → single-cell suspension'
-    typeLegend(960, 880, seg(t, 4, 4.8));
-    vignette(); return;
+    if (t < DISS) dissociate(t, gt); else panning(t - DISS, gt);
+    vignette();
+    caption(S.cap, seg(t, .6, 1.4)); subcap(S.sub, seg(t, 1, 1.8));
+    return;
   }
-  if (k === 1 || k === 2) {
-    const T = k === 1 ? Math.min(t, TNEG + 1.2) : TNEG + t;
-    const fadeOther = 1;
-    // bracket labels
-    const bA = k === 1 ? seg(t, .6, 1.4) : 1;
-    bracket(PLATES[0].x - PR, PLATES[4].x + PR, 318, 'NEGATIVE SELECTION  ·  removed', bA, [170, 182, 194]);
-    bracket(PLATES[5].x - PR, PLATES[5].x + PR, 318, 'POSITIVE  ·  kept', bA * (k === 2 ? 1 : .45), COL.teal);
-    PLATES.forEach((p, i) => {
-      const act = i === 5 ? (T > PA0 + 5 * PD - .3 ? 1 : 0) : bump(T, PA0 + i * PD - .3, PA0 + i * PD + .1, PA0 + i * PD + 1.4, PA0 + i * PD + 2);
-      drawPlate(p.x, PY, PR, { kind: p.kind, pos: p.pos, hl: act * .9, a: bA });
-      txt(p.lab, p.x, PY - PR - 26, { a: bA, size: 20, w: 600, align: 'center', col: p.pos ? COL.teal : COL.text });
-      p.rem.forEach((l, j) => txt(l, p.x, PY + PR + 34 + j * 21, { a: bA * .95, size: 16, align: 'center', col: p.pos ? COL.teal : COL.dim }));
-      if (i < 5) chevron((p.x + PLATES[i + 1].x) / 2, PY, bA * .5);
-    });
-    chevron(210, PY, bA * .5);
-    // cells
-    let wsum = {}, tot = 0; TYPES.forEach(ty => wsum[ty] = 0);
-    for (const c of SUS) {
-      const q = susPos(c, T);
-      c.rd.draw(ctx, q.x, q.y, gt, { b: q.b, a: q.a, s: lerp(1.4, 1.1, ease(seg(T, 0, 1.6))) });
-      const w = (1 - q.b) * (c.cap === -1 && T > PA0 + 5 * PD + 1.6 ? 0 : 1);
-      wsum[c.type] += w; tot += w;
-    }
-    // flow-through
-    if (k === 2) {
-      const fa = seg(t, 2.6, 3.4) * (1 - seg(t, 5.5, 6.2));
-      txt('flow-through', 1830, PY - 60, { a: fa, size: 16, it: true, align: 'center', col: COL.dim });
-      chevron(1800, PY, fa * .6); chevron(1830, PY, fa * .4);
-    }
-    // composition bar of remaining suspension
-    const barA = k === 1 ? seg(t, 1, 1.8) : 1 - seg(t, 3.2, 4);
-    compBar(560, 830, 800, 18, wsum, tot, 'cells still in suspension', barA);
-    if (k === 2) {
-      const pa = seg(t, 3.6, 4.4), fillU = ease(seg(t, 3.8, 5.6));
-      const ws = { astro: 99.3 * fillU, micro: .25 * fillU, oligo: .25 * fillU, neuron: .2 * fillU, endo: 0 };
-      compBar(560, 830, 800, 18, ws, 100, 'bound to the anti-ITGB5 plate', pa, true);
-      txt('> 99% astrocytes', 960, 900, { a: seg(t, 5.2, 5.9), size: 34, w: 600, align: 'center', col: COL.teal });
-    }
-    typeLegend(960, k === 1 && prevStep < 3 ? lerp(880, 975, ease(seg(t, 0, .9))) : 975, 1);
-    caption(k === 1 ? TITLE(4) : TITLE(5), seg(t, .3, 1.1));
-    // was: TITLE(4) = 'Each plate grabs one cell type. The rest flow on.'
-    //      TITLE(5) = 'The last plate keeps the astrocytes.'
-    vignette(); return;
+  threeCultures(t, gt, S);
+}
+// P5 cortex block → papain → single-cell suspension
+function dissociate(t, gt) {
+  const bx = 960, by = 520, bw = 420, bh = 270;
+  const blockA = 1 - seg(t, 2.0, 3.2);
+  if (blockA > 0) {
+    ctx.save(); ctx.globalAlpha *= blockA;
+    const loosen = seg(t, 1.4, 3.0);
+    ctx.save(); rr(bx - bw / 2 - loosen * 20, by - bh / 2 - loosen * 14, bw + loosen * 40, bh + loosen * 28, 26 + loosen * 60); ctx.clip();
+    ctx.translate(bx, by); ctx.scale(.36, .36); ctx.translate(-W / 2, -H / 2); drawTissue(ctx, gt); ctx.restore();
+    rr(bx - bw / 2 - loosen * 20, by - bh / 2 - loosen * 14, bw + loosen * 40, bh + loosen * 28, 26 + loosen * 60);
+    ctx.strokeStyle = 'rgba(200,220,230,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
   }
-  // k === 3 : same trick → three pure cultures
+  txt('P5 rodent cortex', bx, by - bh / 2 - 34, { a: seg(t, .2, .8) * blockA, size: 22, w: 500, align: 'center' });
+  // papain drops
+  for (let i = 0; i < 5; i++) {
+    const t0 = .5 + i * .18, u = seg(t, t0, t0 + .7); if (u <= 0 || u >= 1) continue;
+    const x = bx - 120 + i * 60, y = lerp(by - 260, by - bh / 2 + 20, eOut(u) * u);
+    ctx.fillStyle = `rgba(226,236,242,${.8 * (1 - seg(u, .85, 1))})`;
+    ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.quadraticCurveTo(x + 5, y, x, y + 4); ctx.quadraticCurveTo(x - 5, y, x, y - 9); ctx.fill();
+  }
+  txt('papain', bx + 190, by - 210, { a: bump(t, .5, 1, 2.4, 3), size: 18, it: true, col: COL.dim });
+  const ca = seg(t, 1.9, 2.8);
+  for (const c of SUS) {
+    const u = ease(seg(t, 2.1, 4.2)), x = lerp(c.bx, c.cx, u), y = lerp(c.by, c.cy, u);
+    c.rd.draw(ctx, x + Math.sin(gt * 1.2 + c.ph) * 3 * u, y + Math.cos(gt + c.ph) * 3 * u, gt, { a: ca, s: lerp(.8, 1.4, ca) });
+  }
+  typeLegend(960, 880, seg(t, 4, 4.8));
+}
+// T = seconds since the suspension started moving to the first plate
+function panning(T, gt) {
+  const t4 = T - TNEG;                  // time into the positive-selection beat
+  const bA = seg(T, .6, 1.4);
+  const posA = lerp(.45, 1, seg(T, PA0 + 5 * PD - .6, PA0 + 5 * PD));
+  bracket(PLATES[0].x - PR, PLATES[4].x + PR, 318, 'NEGATIVE SELECTION  ·  removed', bA, [170, 182, 194]);
+  bracket(PLATES[5].x - PR, PLATES[5].x + PR, 318, 'POSITIVE  ·  kept', bA * posA, COL.teal);
+  PLATES.forEach((p, i) => {
+    const act = i === 5 ? (T > PA0 + 5 * PD - .3 ? 1 : 0) : bump(T, PA0 + i * PD - .3, PA0 + i * PD + .1, PA0 + i * PD + 1.4, PA0 + i * PD + 2);
+    drawPlate(p.x, PY, PR, { kind: p.kind, pos: p.pos, hl: act * .9, a: bA });
+    txt(p.lab, p.x, PY - PR - 26, { a: bA, size: 20, w: 600, align: 'center', col: p.pos ? COL.teal : COL.text });
+    p.rem.forEach((l, j) => txt(l, p.x, PY + PR + 34 + j * 21, { a: bA * .95, size: 16, align: 'center', col: p.pos ? COL.teal : COL.dim }));
+    if (i < 5) chevron((p.x + PLATES[i + 1].x) / 2, PY, bA * .5);
+  });
+  chevron(210, PY, bA * .5);
+  // cells
+  let wsum = {}, tot = 0; TYPES.forEach(ty => wsum[ty] = 0);
+  for (const c of SUS) {
+    const q = susPos(c, T);
+    c.rd.draw(ctx, q.x, q.y, gt, { b: q.b, a: q.a, s: lerp(1.4, 1.1, ease(seg(T, 0, 1.6))) });
+    const w = (1 - q.b) * (c.cap === -1 && T > PA0 + 5 * PD + 1.6 ? 0 : 1);
+    wsum[c.type] += w; tot += w;
+  }
+  // flow-through
+  const fa = seg(t4, 2.6, 3.4) * (1 - seg(t4, 5.5, 6.2));
+  txt('flow-through', 1830, PY - 60, { a: fa, size: 16, it: true, align: 'center', col: COL.dim });
+  chevron(1800, PY, fa * .6); chevron(1830, PY, fa * .4);
+  // composition bar: what is still in suspension → what the positive plate caught
+  compBar(560, 830, 800, 18, wsum, tot, 'cells still in suspension', seg(T, 1, 1.8) * (1 - seg(t4, 3.2, 4)));
+  const pa = seg(t4, 3.6, 4.4), fillU = ease(seg(t4, 3.8, 5.6));
+  const ws = { astro: 99.3 * fillU, micro: .25 * fillU, oligo: .25 * fillU, neuron: .2 * fillU, endo: 0 };
+  compBar(560, 830, 800, 18, ws, 100, 'bound to the anti-ITGB5 plate', pa, true);
+  txt('> 99% astrocytes', 960, 900, { a: seg(t4, 5.2, 5.9), size: 34, w: 600, align: 'center', col: COL.teal });
+  typeLegend(960, lerp(880, 975, ease(seg(T, 0, .9))), 1);
+}
+// step k = 1: same trick → three pure cultures
+function threeCultures(t, gt, S) {
   const T = TNEG + 7;
   const fo = 1 - seg(t, 0, .7);
   if (fo > 0) {
@@ -181,16 +181,14 @@ function scene2(k, t, gt) {
     const ca = seg(t, 1.5, 2.4);
     if (ca > 0) { ctx.translate(x, y); ctx.scale(r / DR, r / DR); d.cells.forEach(c => c.draw(ctx, { t: gt, sprout: spr, a: ca })); }
     ctx.restore();
-    if (i !== 1) drawPlateTexture(x, y, r, appear * (1 - g));
     drawDishRim(x, y, r, { a: appear });
     txt(d.lab, x, y - r - 22, { a: appear * (1 - seg(t, 1.8, 2.4)), size: 18, w: 600, align: 'center', col: i === 1 ? COL.teal : COL.text });
     txt(d.name, DX[d.key], DY + DR + 42, { a: seg(t, 2.2, 3), size: 24, w: 600, align: 'center' });
     txt((d.sub || `${d.src} · ${d.lab} panning`) + d.pur, DX[d.key], DY + DR + 70, { a: seg(t, 2.6, 3.4), size: 17, align: 'center', col: COL.dim });
   });
-  caption(TITLE(6), seg(t, 2.4, 3.2));   // was: 'Same trick, three pure cultures.'
   vignette();
+  caption(S.cap, seg(t, 2.4, 3.2)); subcap(S.sub, seg(t, 2.8, 3.6));
 }
-function drawPlateTexture() { }
 function bracket(x0, x1, y, label, a, col) {
   if (a <= .004) return;
   ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = rgb(col, .55); ctx.lineWidth = 1.2;

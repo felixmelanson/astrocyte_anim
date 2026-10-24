@@ -24,15 +24,16 @@ const F = {
 };
 const DOTS = { mcm: [PC.il1, PC.tnf, PC.other, PC.c1q, PC.other, PC.il1, PC.tnf, PC.other, PC.c1q, PC.other], lps: Array(8).fill(PC.lps), cyto: [PC.il1, PC.tnf, PC.c1q, PC.il1, PC.tnf, PC.c1q, PC.il1, PC.tnf], rest: Array(5).fill(PC.other), nab: [PC.gray, PC.ab, PC.other, PC.gray, PC.ab, PC.other, PC.gray, PC.ab], acm: [PC.tox, PC.other, PC.tox, PC.tox, PC.other, PC.tox, PC.other, PC.tox], conc: Array(12).fill(0).map((_, i) => i % 3 ? PC.tox : PC.other) };
 const LIQ = { mcm: [58, 72, 84], lps: [70, 76, 80], cyto: [66, 72, 70], rest: [52, 64, 74], acm: [92, 64, 62], conc: [120, 70, 64] };
+// step = the scene-4 step (k) whose result produces this ledger card
 const CARDS = [
-  { l1: 'LPS', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 9 },
-  { l1: 'LPS-microglia medium', to: 'astrocytes', res: 'A1', k: 'a', r: 1, step: 11 },
-  { l1: 'resting-microglia medium', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 12 },
-  { l1: 'IL-1α + TNF + C1q', to: 'astrocytes', res: 'A1', k: 'a', r: 1, step: 13 },
-  { l1: 'LPS-microglia med. + nAbs', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 14 },
-  { l1: 'A1 astrocyte medium', to: 'RGCs', res: 'die', k: 'n', d: 1, step: 16 },
-  { l1: 'LPS-microglia medium', to: 'RGCs', res: 'survive', k: 'n', d: 0, step: 18 },
-  { l1: 'IL-1α + TNF + C1q', to: 'RGCs', res: 'survive', k: 'n', d: 0, step: 19 },
+  { l1: 'LPS', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 1 },
+  { l1: 'LPS-microglia medium', to: 'astrocytes', res: 'A1', k: 'a', r: 1, step: 2 },
+  { l1: 'resting-microglia medium', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 2 },
+  { l1: 'IL-1α + TNF + C1q', to: 'astrocytes', res: 'A1', k: 'a', r: 1, step: 3 },
+  { l1: 'LPS-microglia med. + nAbs', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 4 },
+  { l1: 'A1 astrocyte medium', to: 'RGCs', res: 'die', k: 'n', d: 1, step: 5 },
+  { l1: 'LPS-microglia medium', to: 'RGCs', res: 'survive', k: 'n', d: 0, step: 7 },
+  { l1: 'IL-1α + TNF + C1q', to: 'RGCs', res: 'survive', k: 'n', d: 0, step: 7 },
 ];
 const cardX = i => 960 + (i - 3.5) * 222, CARDY = 880;
 
@@ -41,84 +42,84 @@ const POS = {
   vialL: { x: 660, y: 262 }, vialR: { x: 1260, y: 262 }, well: { x: 660, y: 262 }, filt: { x: 1260, y: 300 },
 };
 const MN = { x: DX.M, y: DY };
-function scene4(k, t, gt) {
-  const s = k;   // global step index 8..19
+// k = scene-4 step: 0 intro · 1 LPS direct · 2 LPS→microglia→astrocytes (+ resting control) · 3 cocktail
+//                    4 nAbs · 5 concentrate ACM → RGCs · 6 dose wells · 7 both RGC controls
+function scene4(k, t, gt, S) {
   const st = {
     m: { mode: 'act', act: 1, a: 1, fields: [] }, a: { layers: [] }, n: { layers: [] },
-    hops: [], arcs: [], tubes: [], clock: null, caps: [], legend: 0, extra: [], card: null,
+    hops: [], arcs: [], tubes: [], clock: null, caps: [], legend: 0, extra: [], cards: [],
     mSub: '', aSub: '', nSub: '', mName: 'Microglia', aHL: 0,
   };
   const mcmSteady = { f: F.mcm, o: {} };
-  const reset = (layerOld, layerNew) => [{ ...layerOld, a: (layerOld.a ?? 1) * (1 - seg(t, 0, .45)) }, { ...layerNew, a: (layerNew.a ?? 1) * seg(t, .45, .95) }];
-  const H = (src, dst, t0, sp, liq, dots, ok, lift = 110, arcFrom, arcTo) => {
+  const reset = (layerOld, layerNew, t0 = 0) => [{ ...layerOld, a: (layerOld.a ?? 1) * (1 - seg(t, t0, t0 + .45)) }, { ...layerNew, a: (layerNew.a ?? 1) * seg(t, t0 + .45, t0 + .95) }];
+  // one pipette hop; returns the dispense time. o.arcA fades the arc (e.g. before a second hop to the same dish)
+  const H = (src, dst, t0, sp, liq, dots, ok, lift = 110, o = {}) => {
     st.hops.push({ src, dst, t0, sp, liq, dots });
     const td = t0 + HOPD * sp;
-    st.arcs.push({ from: arcFrom || src, to: arcTo || dst, prog: seg(t, td, td + .8), ok, lift });
+    st.arcs.push({ from: o.arcFrom || src, to: o.arcTo || dst, prog: seg(t, td, td + .8), ok, lift, a: o.arcA ?? 1 });
     return td;
   };
   const tipO = () => [0, -18];
-  const cardAt = (i, tf) => st.card = { i, tf };
-  let legendItems = ['il1', 'tnf', 'c1q', 'other'];
+  const fly = (i, tf) => st.cards.push({ i, tf });
+  const fromMicro = p => { const c = MIC[p.src % MIC.length]; return [c.x, c.y]; };
+  const fromAstro = p => { const c = AST[p.src % AST.length]; return [c.x, c.y]; };
 
-  // defaults
-  st.m.act = s >= 11 ? 1 : 0; st.m.fields = s >= 11 ? [mcmSteady] : [];
+  // defaults: from step 3 on, microglia are LPS-activated and their medium is in the dish
+  st.m.act = k >= 3 ? 1 : 0; st.m.fields = k >= 3 ? [mcmSteady] : [];
   st.a.layers = [{ r: 0, fields: [] }]; st.n.layers = [{ d: 0, fields: [] }];
-  st.legend = s >= 11 ? 1 : 0;
-  if (s >= 12) st.mSub = '+ LPS';
+  st.legend = k >= 3 ? 1 : 0;
+  if (k >= 3) st.mSub = '+ LPS';
 
-  switch (s) {
-    case 8: {
-      st.intro = true; st.caps.push([TITLE(9), seg(t, 1.6, 2.6)]);   // was: 'Three pure cultures. Move the medium, one hop at a time.'
+  switch (k) {
+    case 0: {
+      st.intro = true; st.caps.push([S.cap, seg(t, 1.6, 2.6)]);
       break;
     }
-    case 9: {
+    case 1: {
       st.tubes.push({ p: POS.vialL, label: 'LPS', a: seg(t, 0, .5), dots: DOTS.lps, liq: LIQ.lps });
       const td = H(POS.vialL, POS.A, .6, 1, LIQ.lps, DOTS.lps, false, 60);
       st.a.layers = [{ r: 0, fields: [{ f: F.lpsA, o: { t0: td, origin: tipO, stag: .6 } }] }];
       st.clock = { d: 'A', p: seg(t, td + .8, td + 4.8), a: bump(t, td + .5, td + .9, 99, 100) };
       st.aSub = t > td + .3 ? '+ LPS' : '';
-      st.caps.push([TITLE(10), seg(t, .3, 1) * (1 - seg(t, td + 4.6, td + 5.1))]);   // was: 'Control: LPS straight onto astrocytes'
-      st.caps.push([TITLE(11), seg(t, td + 5.1, td + 5.8)]);   // was: 'Astrocytes lack TLR4. LPS can’t act on them directly.'
-      cardAt(0, td + 5.6);
+      st.caps.push([S.cap, seg(t, .3, 1) * (1 - seg(t, td + 4.6, td + 5.1))]);
+      st.caps.push([S.capEnd, seg(t, td + 5.1, td + 5.8)]);
+      fly(0, td + 5.6);
       break;
     }
-    case 10: {
-      st.a.layers = reset({ r: 0, fields: [{ f: F.lpsA, o: {} }] }, { r: 0, fields: [] });
-      st.tubes.push({ p: POS.vialL, label: 'LPS', a: 1, dots: DOTS.lps, liq: LIQ.lps });
-      const td = H(POS.vialL, POS.M, .6, 1, LIQ.lps, DOTS.lps, true, 60);
-      st.m.act = ease(seg(t, td + .6, td + 3.6));
-      st.m.fields = [{ f: F.lpsM, o: { t0: td, origin: tipO, stag: .6, a: 1 - .65 * seg(t, td + 3, td + 4) } },
-                     { f: F.mcm, o: { t0: td + 2.2, stag: 4, spread: 2.4, origin: p => { const c = MIC[p.src % MIC.length]; return [c.x, c.y]; } } }];
-      st.mSub = t > td + .3 ? '+ LPS' : '';
-      st.legend = seg(t, td + 2.6, td + 3.4);
-      st.caps.push([TITLE(12), seg(t, .3, 1)]);   // was: 'Hop 1: LPS activates microglia'
+    case 2: {
+      // beat A: LPS activates microglia, which start secreting
+      const sp = .8;
+      st.tubes.push({ p: POS.vialL, label: 'LPS', a: 1 - seg(t, 4.6, 5.2), dots: DOTS.lps, liq: LIQ.lps });
+      const tdA = H(POS.vialL, POS.M, .5, sp, LIQ.lps, DOTS.lps, true, 60);
+      st.m.act = ease(seg(t, tdA + .4, tdA + 2.6));
+      st.m.fields = [{ f: F.lpsM, o: { t0: tdA, origin: tipO, stag: .6, a: 1 - seg(t, tdA + 2, tdA + 3) } },
+                     { f: F.mcm, o: { t0: tdA + 1.2, stag: 2.6, spread: 2, origin: fromMicro } }];
+      st.legend = seg(t, tdA + 1.6, tdA + 2.4);
+      // beat B: their medium → astrocytes → A1
+      const t0C = 15.0;                       // beat C start
+      const tdB = H(POS.M, POS.A, 6.2, sp, LIQ.mcm, DOTS.mcm, true, 110, { arcA: 1 - seg(t, t0C, t0C + .6) });
+      const rB = ease(seg(t, tdB + .6, tdB + 4.4));
+      // beat C: control, medium from resting microglia → no change
+      const tdC = H(POS.M, POS.A, t0C + .4, .7, LIQ.rest, DOTS.rest, false);
+      if (t < t0C) {
+        st.mSub = t > tdA + .3 ? '+ LPS' : '';
+        st.a.layers = reset({ r: 0, fields: [{ f: F.lpsA, o: {} }] }, { r: rB, fields: [{ f: F.mcmA, o: { t0: tdB, origin: tipO, stag: .6 } }] });
+        st.clock = { d: 'A', p: seg(t, tdB + .6, tdB + 4.4), a: seg(t, tdB + .3, tdB + .7) };
+        st.aSub = t > tdB + 3.4 ? 'A1 reactive' : '';
+        st.inset = { r: rB, a: seg(t, tdB + 1, tdB + 1.8) };
+      } else {
+        st.m.swap = { old: 1 - seg(t, t0C, t0C + .5), neu: seg(t, t0C + .5, t0C + 1.1) };
+        st.mSub = t > t0C + .5 ? 'no LPS' : '+ LPS';
+        st.a.layers = reset({ r: 1, fields: [{ f: F.mcmA, o: {} }] }, { r: 0, fields: [{ f: F.restA, o: { t0: tdC, origin: tipO, stag: .6 } }] }, t0C);
+        st.clock = { d: 'A', p: seg(t, tdC + .4, tdC + 2.4), a: seg(t, tdC + .1, tdC + .5) };
+        st.inset = { r: 1, a: 1 - seg(t, t0C, t0C + .5) };
+      }
+      st.caps.push([S.cap, seg(t, .3, 1)]);
+      st.sub = [S.sub, seg(t, t0C + .3, t0C + 1.1)];
+      fly(1, tdB + 4.8); fly(2, tdC + 2.6);
       break;
     }
-    case 11: {
-      const td = H(POS.M, POS.A, .3, 1, LIQ.mcm, DOTS.mcm, true);
-      const r = ease(seg(t, td + .8, td + 6.3));
-      st.a.layers = [{ r, fields: [{ f: F.mcmA, o: { t0: td, origin: tipO, stag: .6 } }] }];
-      st.clock = { d: 'A', p: seg(t, td + .8, td + 6.3), a: seg(t, td + .5, td + .9) };
-      st.aSub = t > td + 4.5 ? 'A1 reactive' : '';
-      st.inset = { r, a: seg(t, td + 1, td + 1.8) };
-      st.aHL = 0;
-      st.caps.push([TITLE(13), seg(t, .3, 1)]);   // was: 'Hop 2: activated-microglia medium → astrocytes'
-      cardAt(1, td + 7.2);
-      break;
-    }
-    case 12: {
-      st.a.layers = reset({ r: 1, fields: [{ f: F.mcmA, o: {} }] }, { r: 0, fields: [] });
-      const sw = seg(t, 0, .45), sw2 = seg(t, .45, 1);
-      st.m.swap = { old: 1 - sw, neu: sw2 };
-      st.mSub = t > .5 ? 'no LPS' : '+ LPS';
-      const td = H(POS.M, POS.A, 1.1, 1, LIQ.rest, DOTS.rest, false);
-      st.a.layers[1].fields = [{ f: F.restA, o: { t0: td, origin: tipO, stag: .6 } }];
-      st.clock = { d: 'A', p: seg(t, td + .8, td + 4.8), a: seg(t, td + .5, td + .9) };
-      st.caps.push([TITLE(14), seg(t, .3, 1)]);   // was: 'Control: medium from resting microglia'
-      cardAt(2, td + 5.4);
-      break;
-    }
-    case 13: {
+    case 3: {
       st.a.layers = reset({ r: 0, fields: [{ f: F.restA, o: {} }] }, { r: 0, fields: [] });
       st.m.absent = seg(t, 0, .8); st.m.mode = 'rest'; st.m.act = 0; st.m.fields = [{ f: F.restM, o: { a: 1 - seg(t, 0, .6) } }];
       st.mSub = 'none'; st.mName = 'No microglia';
@@ -128,12 +129,12 @@ function scene4(k, t, gt) {
       st.a.layers[1].r = r; st.a.layers[1].fields = [{ f: F.cyto, o: { t0: td, origin: tipO, stag: .6 } }];
       st.clock = { d: 'A', p: seg(t, td + .8, td + 6.3), a: seg(t, td + .5, td + .9) };
       st.aSub = t > td + 4.5 ? 'A1 reactive' : '';
-      st.caps.push([TITLE(15), seg(t, .3, 1)]);   // was: 'Sufficient? Skip microglia. Add only the three cytokines.'
-      st.sub = ['Title 15 subtitle placeholder', seg(t, 1, 1.8)];   // was: 'IL-1α 3 ng/ml  ·  TNF 30 ng/ml  ·  C1q 400 ng/ml  ·  24 h'
-      cardAt(3, td + 7.0);
+      st.caps.push([S.cap, seg(t, .3, 1)]);
+      st.sub = [S.sub, seg(t, 1, 1.8)];
+      fly(3, td + 7.0);
       break;
     }
-    case 14: {
+    case 4: {
       st.a.layers = reset({ r: 1, fields: [{ f: F.cyto, o: {} }] }, { r: 0, fields: [] });
       st.m.returnA = seg(t, 0, .8); st.m.fields = [{ f: F.mcm, o: { a: seg(t, .2, .9) } }];
       const sp = .85, td1 = H(POS.M, POS.well, .9, sp, LIQ.mcm, DOTS.mcm, true, 60);
@@ -142,106 +143,100 @@ function scene4(k, t, gt) {
       st.a.layers[1].fields = [{ f: F.nabA, o: { t0: td2, origin: tipO, stag: .6 } }];
       st.clock = { d: 'A', p: seg(t, td2 + .8, td2 + 4.8), a: seg(t, td2 + .5, td2 + .9) };
       st.legendAb = seg(t, td1 + 1, td1 + 1.8);
-      st.caps.push([TITLE(16), seg(t, .3, 1)]);   // was: 'Necessary? Neutralize the three in activated-microglia medium.'
-      cardAt(4, td2 + 5.3);
+      st.caps.push([S.cap, seg(t, .3, 1)]);
+      fly(4, td2 + 5.3);
       break;
     }
-    case 15: {
+    case 5: {
+      // A1 astrocyte medium → 30 kDa concentrator → purified RGCs, which die
       st.a.layers = reset({ r: 0, fields: [{ f: F.nabA, o: {} }] }, { r: 1, fields: [] });
-      st.aSub = 'A1 reactive';
-      st.a.layers[1].fields = [{ f: F.acm, o: { t0: .9, stag: 3, spread: 2.4, origin: p => { const c = AST[p.src % AST.length]; return [c.x, c.y]; } } }];
-      st.qmark = seg(t, 3.2, 4);
-      st.legendTox = seg(t, 3.4, 4.2); st.legendAb = 1;
-      const td = H(POS.A, POS.filt, 4.4, 1, LIQ.acm, DOTS.acm, true, 50);
-      st.filter = { a: seg(t, 3.6, 4.2), fill: seg(t, td, td + .7), conc: ease(seg(t, td + 1.2, td + 5)), spin: bump(t, td + 1, td + 1.3, td + 4.8, td + 5.2), lab: seg(t, td + 4.6, td + 5.3), t };
-      st.caps.push([TITLE(17), seg(t, .3, 1)]);   // was: 'Hop 3: collect A1 astrocyte medium, concentrate it'
+      st.aSub = t > .6 ? 'A1 reactive' : '';
+      st.a.layers[1].fields = [{ f: F.acm, o: { t0: .5, stag: 1.6, spread: 1.8, origin: fromAstro } }];
+      st.qmark = seg(t, 1.4, 2.2);
+      st.legendTox = seg(t, 1.2, 2.0); st.legendAb = 1;
+      const sp = .75;
+      const tdF = H(POS.A, POS.filt, 2.0, sp, LIQ.acm, DOTS.acm, true, 50);
+      const t0N = tdF + 2.7;
+      const tdN = H(POS.filt, POS.N, t0N, sp, LIQ.conc, DOTS.conc, true, 50);
+      st.arcs[0].a = 1 - seg(t, t0N + .5, t0N + 1.2);
+      st.filter = {
+        a: seg(t, 1.6, 2.2) * (1 - seg(t, tdN + 1, tdN + 1.8)),
+        fill: seg(t, tdF, tdF + .5) * (1 - seg(t, t0N + 1.2 * sp, t0N + 1.9 * sp)),
+        conc: ease(seg(t, tdF + .6, tdF + 2.4)), spin: bump(t, tdF + .5, tdF + .8, tdF + 2.2, tdF + 2.5),
+        lab: seg(t, tdF + 2, tdF + 2.6), t,
+      };
+      const d = seg(t, tdN + .5, tdN + 5.0);
+      st.n.layers = [{ d, fields: [{ f: F.concN, o: { t0: tdN, origin: tipO, stag: .6 } }] }];
+      st.clock = { d: 'N', p: d, a: seg(t, tdN + .2, tdN + .6) };
+      st.nSub = t > tdN + .3 ? '50 µg/ml protein' : '';
+      st.casp = seg(t, tdN + 2, tdN + 2.8);
+      st.caps.push([S.cap, seg(t, .3, 1)]);
+      fly(5, tdN + 5.2);
       break;
     }
-    case 16: {
-      st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1;
-      st.qmark = 1;
-      const td = H(POS.filt, POS.N, .3, 1, LIQ.conc, DOTS.conc, true, 50);
-      st.filter = { a: 1 - seg(t, td + 2, td + 3), fill: 1 - seg(t, 1.2, 1.9), conc: 1, spin: 0, lab: 1 - seg(t, 1, 2), t, used: true };
-      const d = seg(t, td + .8, td + 7.5);
-      st.n.layers = [{ d, fields: [{ f: F.concN, o: { t0: td, origin: tipO, stag: .6 } }] }];
-      st.clock = { d: 'N', p: d, a: seg(t, td + .5, td + .9) };
-      st.nSub = t > td + .3 ? '50 µg/ml protein' : '';
-      st.casp = seg(t, td + 2.4, td + 3.2);
-      st.caps.push([TITLE(18), seg(t, .3, 1)]);   // was: 'Concentrated A1 astrocyte medium → purified RGCs'
-      cardAt(5, td + 8);
-      break;
-    }
-    case 17: {
+    case 6: {
       st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1; st.qmark = 1;
       st.n.layers = [{ d: 1, fields: [{ f: F.concN, o: {} }], a: 1 - seg(t, 0, .6) }];
       st.wells = { a: seg(t, .4, 1.2), t };
-      st.caps.push([TITLE(19), seg(t, .3, 1)]);   // was: 'Dose-dependent: RGC survival after 24 h'
+      st.caps.push([S.cap, seg(t, .3, 1)]);
       break;
     }
-    case 18: {
+    case 7: {
+      // both controls straight onto RGCs: activated-microglia medium, then the three cytokines
       st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1; st.qmark = 1;
       st.wells = { a: 1 - seg(t, 0, .5), t: 99 };
-      st.n.layers = [{ d: 0, fields: [], a: seg(t, .45, 1) }];
-      const td = H(POS.M, POS.N, 1.0, 1, LIQ.mcm, DOTS.mcm, false, 120);
-      st.n.layers[0].fields = [{ f: F.mcmN, o: { t0: td, origin: tipO, stag: .6 } }];
-      st.clock = { d: 'N', p: seg(t, td + .8, td + 4.8), a: seg(t, td + .5, td + .9) };
-      st.nSub = t > td + 4.8 ? 'survive' : '';
-      st.aBypass = seg(t, 0, .6);
-      st.caps.push([TITLE(20), seg(t, .3, 1)]);   // was: 'Control: activated-microglia medium directly on RGCs'
-      cardAt(6, td + 5.4);
-      break;
-    }
-    case 19: {
-      st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1; st.qmark = 1;
-      st.n.layers = reset({ d: 0, fields: [{ f: F.mcmN, o: {} }] }, { d: 0, fields: [] });
-      st.tubes.push({ p: POS.vialR, label: 'IL-1α + TNF + C1q', a: seg(t, .3, .8), dots: DOTS.cyto, liq: LIQ.cyto });
-      const td = H(POS.vialR, POS.N, 1.0, 1, LIQ.cyto, DOTS.cyto, false, 60);
-      st.n.layers[1].fields = [{ f: F.cytoN, o: { t0: td, origin: tipO, stag: .6 } }];
-      st.clock = { d: 'N', p: seg(t, td + .8, td + 4.8), a: seg(t, td + .5, td + .9) };
-      st.nSub = t > td + 4.8 ? 'survive' : '';
-      const fin = seg(t, td + 5.6, td + 6.4);
-      st.caps.push([TITLE(21), seg(t, .3, 1) * (1 - seg(t, td + 5, td + 5.6))]);   // was: 'Control: the three cytokines directly on RGCs'
-      st.caps.push([TITLE(22), fin]);   // was: 'The killer is in the astrocyte medium. Not the microglia. Not the cytokines.'
+      const sp = .8, t0C = 6.0;
+      const tdM = H(POS.M, POS.N, .9, sp, LIQ.mcm, DOTS.mcm, false, 120);
+      st.tubes.push({ p: POS.vialR, label: 'IL-1α + TNF + C1q', a: seg(t, t0C - .6, t0C - .1), dots: DOTS.cyto, liq: LIQ.cyto });
+      const tdC = H(POS.vialR, POS.N, t0C, sp, LIQ.cyto, DOTS.cyto, false, 60);
+      const dishA = seg(t, .45, 1), sw = t0C + .2;
+      st.n.layers = reset({ d: 0, fields: [{ f: F.mcmN, o: { t0: tdM, origin: tipO, stag: .6 } }], a: dishA }, { d: 0, fields: [{ f: F.cytoN, o: { t0: tdC, origin: tipO, stag: .6 } }], a: dishA }, sw);
+      st.clock = t < sw + .4 ? { d: 'N', p: seg(t, tdM + .4, tdM + 2.4), a: seg(t, tdM + .1, tdM + .5) * (1 - seg(t, sw, sw + .4)) }
+                             : { d: 'N', p: seg(t, tdC + .4, tdC + 2.4), a: seg(t, tdC + .1, tdC + .5) };
+      st.nSub = (t > tdM + 2.4 && t < sw) || t > tdC + 2.4 ? 'survive' : '';
+      const fin = seg(t, tdC + 3.4, tdC + 4.2);
+      st.caps.push([S.cap, seg(t, .3, 1) * (1 - seg(t, tdC + 2.8, tdC + 3.4))]);
+      st.caps.push([S.capEnd, fin]);
       st.aHL = fin;
-      st.aBypass = 1 - fin; st.mBypass = 1 - fin;
-      cardAt(7, td + 5.2);
+      st.aBypass = seg(t, 0, .6) * (1 - fin); st.mBypass = seg(t, t0C, t0C + .6) * (1 - fin);
+      fly(6, tdM + 2.6); fly(7, tdC + 2.6);
       break;
     }
   }
-  renderRelay(s, t, gt, st);
+  renderRelay(k, t, gt, st);
 }
-function renderRelay(s, t, gt, st) {
+function renderRelay(s, t, gt, st) {   // s = scene-4 step k
   const intro = st.intro;
   const dA = key => intro ? seg(t, { M: .2, A: .5, N: .8 }[key], { M: 1, A: 1.3, N: 1.6 }[key]) : 1;
   // --- hop arcs (under everything)
   for (const a of st.arcs) {
     const fx = a.from.x, fy = a.from === POS.M || a.from === POS.A || a.from === POS.N ? DY - DR - 6 : a.from.y - 50;
     const tx = a.to.x, ty = a.to === POS.M || a.to === POS.A || a.to === POS.N ? DY - DR - 6 : a.to.y - 60;
-    hopArc(fx, fy, tx, ty, a.lift, a.prog, a.ok, 1);
+    hopArc(fx, fy, tx, ty, a.lift, a.prog, a.ok, a.a ?? 1);
   }
   // --- microglia dish
   {
     const a = dA('M') * (1 - .7 * (st.mBypass || 0)), m = st.m;
     const absent = m.absent || 0, ret = m.returnA ?? 1;
-    drawDish(DX.M, DY, DR, { a: a * (1 - absent) * (s === 14 ? ret : 1) });
-    if (absent > 0 || (s === 14 && ret < 1)) drawDish(DX.M, DY, DR, { dashed: true, a: s === 14 ? 1 - ret : absent });
+    drawDish(DX.M, DY, DR, { a: a * (1 - absent) * (s === 4 ? ret : 1) });
+    if (absent > 0 || (s === 4 && ret < 1)) drawDish(DX.M, DY, DR, { dashed: true, a: s === 4 ? 1 - ret : absent });
     ctx.save(); clipCircle(DX.M, DY, DR - 4); ctx.translate(DX.M, DY);
     if (m.swap) {
       MIC.forEach(c => c.draw(ctx, { t: gt, r: 1, a: a * m.swap.old }));
       MIC.forEach(c => c.draw(ctx, { t: gt, r: 0, a: a * m.swap.neu }));
       F.mcm.draw(ctx, gt, { a: m.swap.old }); F.restM.draw(ctx, gt, { a: m.swap.neu });
-    } else if (s === 13) {
+    } else if (s === 3) {
       MIC.forEach(c => c.draw(ctx, { t: gt, r: 0, a: 1 - absent }));
       for (const f of m.fields) f.f.draw(ctx, gt, f.o);
     } else {
-      const ca = a * (s === 14 ? ret : 1);
+      const ca = a * (s === 4 ? ret : 1);
       MIC.forEach(c => c.draw(ctx, { t: gt, r: m.act, a: ca }));
       for (const f of m.fields) f.f.draw(ctx, gt, { ...f.o, a: (f.o.a ?? 1) * ca });
     }
     ctx.restore();
-    drawDishRim(DX.M, DY, DR, { a: a * (1 - absent) * (s === 14 ? ret : 1) });
-    const nameCol = s === 13 ? GRAYP.rim : COL.text;
-    txt(s === 13 && absent > .5 ? 'No microglia' : 'Microglia', DX.M, DY + DR + 40, { a, size: 24, w: 600, align: 'center', col: nameCol });
+    drawDishRim(DX.M, DY, DR, { a: a * (1 - absent) * (s === 4 ? ret : 1) });
+    const nameCol = s === 3 ? GRAYP.rim : COL.text;
+    txt(s === 3 && absent > .5 ? 'No microglia' : 'Microglia', DX.M, DY + DR + 40, { a, size: 24, w: 600, align: 'center', col: nameCol });
     const subCol = st.mSub === '+ LPS' ? COL.coral : COL.dim;
     txt(st.mSub === 'none' ? 'skipped entirely' : st.mSub, DX.M, DY + DR + 66, { a: a * (st.mSub ? 1 : 0), size: 17, align: 'center', col: subCol });
   }
@@ -321,11 +316,11 @@ function drawLegend(st) {
   });
 }
 function drawLedger(s, t, gt, st) {
-  const shown = CARDS.filter(c => c.step < s).length;
-  const fly = st.card && t > st.card.tf ? st.card : null;
+  const shown = CARDS.filter(c => c.step < s).length;     // cards are ordered by step
+  const flyOf = i => st.cards.find(c => c.i === i && t > c.tf);
   CARDS.forEach((cd, i) => {
-    const cx = cardX(i);
-    const vis = i < shown ? 1 : (fly && fly.i === i ? seg(t, fly.tf + .7, fly.tf + 1.1) : 0);
+    const cx = cardX(i), f = flyOf(i);
+    const vis = i < shown ? 1 : f ? seg(t, f.tf + .7, f.tf + 1.1) : 0;
     ctx.save(); rr(cx - 102, CARDY - 94, 204, 188, 12);
     ctx.fillStyle = `rgba(255,255,255,${.022 + .018 * vis})`; ctx.fill();
     ctx.strokeStyle = `rgba(255,255,255,${.05 + .05 * vis})`; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
@@ -337,16 +332,15 @@ function drawLedger(s, t, gt, st) {
     const good = cd.res === 'no change' || cd.res === 'survive';
     txt(cd.res, cx, CARDY + 80, { a: vis, size: 16, w: 600, align: 'center', col: good ? COL.teal : COL.coral });
   });
-  if (fly) {      // result dish flies down into its ledger slot
-    const u = ease(seg(t, fly.tf, fly.tf + .9)); if (u > 0 && u < 1) {
-      const cd = CARDS[fly.i], src = cd.k === 'a' ? DX.A : DX.N;
-      const x = lerp(src, cardX(fly.i), u), y = lerp(DY, CARDY + 16, u) - Math.sin(u * Math.PI) * 40, r = lerp(DR, 36, u);
-      ctx.save(); ctx.globalAlpha *= .95 * (1 - seg(u, .85, 1)); drawDish(x, y, r);
-      ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / DR, r / DR);
-      if (cd.k === 'a') AST.forEach(c => c.draw(ctx, { t: gt, r: cd.r })); else RGC.forEach(c => c.draw(ctx, { t: gt, d: cd.d, noPuncta: true }));
-      ctx.restore(); drawDishRim(x, y, r); ctx.restore();
-      ctx.save(); ctx.globalAlpha *= .6 * (1 - u); ctx.strokeStyle = 'rgba(220,235,245,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
-    }
+  for (const fl of st.cards) {      // result dish flies down into its ledger slot
+    const u = ease(seg(t, fl.tf, fl.tf + .9)); if (u <= 0 || u >= 1) continue;
+    const cd = CARDS[fl.i], src = cd.k === 'a' ? DX.A : DX.N;
+    const x = lerp(src, cardX(fl.i), u), y = lerp(DY, CARDY + 16, u) - Math.sin(u * Math.PI) * 40, r = lerp(DR, 36, u);
+    ctx.save(); ctx.globalAlpha *= .95 * (1 - seg(u, .85, 1)); drawDish(x, y, r);
+    ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / DR, r / DR);
+    if (cd.k === 'a') AST.forEach(c => c.draw(ctx, { t: gt, r: cd.r })); else RGC.forEach(c => c.draw(ctx, { t: gt, d: cd.d, noPuncta: true }));
+    ctx.restore(); drawDishRim(x, y, r); ctx.restore();
+    ctx.save(); ctx.globalAlpha *= .6 * (1 - u); ctx.strokeStyle = 'rgba(220,235,245,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
   }
 }
 function miniDish(x, y, cd, gt, a) {
