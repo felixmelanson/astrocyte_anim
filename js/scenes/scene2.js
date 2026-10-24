@@ -46,9 +46,9 @@ function susPos(c, T) {
 function drawPlate(x, y, r, o = {}) {
   const a = o.a ?? 1; if (a <= .004) return;
   ctx.save(); ctx.globalAlpha *= a;
-  drawDish(x, y, r, { tint: [17, 27, 35] });
+  drawDish(x, y, r, { tint: UI.plate });
   ctx.save(); clipCircle(x, y, r - 6);
-  ctx.strokeStyle = o.pos ? 'rgba(170,235,222,.16)' : 'rgba(200,214,228,.12)'; ctx.fillStyle = 'rgba(200,214,228,.14)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = o.pos ? rgb(UI.gridPos, .16 * UI.gridA) : rgb(UI.grid, .12 * UI.gridA); ctx.fillStyle = rgb(UI.grid, .14 * UI.gridA); ctx.lineWidth = 1;
   ctx.beginPath();
   for (let gy = -r; gy <= r; gy += 14) for (let gx = -r; gx <= r; gx += 14) {
     const px = x + gx + ((Math.round(gy / 14)) % 2 ? 7 : 0), py = y + gy;
@@ -57,7 +57,7 @@ function drawPlate(x, y, r, o = {}) {
   }
   o.kind === 'lectin' ? ctx.fill() : ctx.stroke();
   ctx.restore();
-  drawDishRim(x, y, r, { hl: o.hl || 0, hlCol: o.pos ? COL.teal : [230, 240, 248] });
+  drawDishRim(x, y, r, { hl: o.hl || 0, hlCol: o.pos ? COL.teal : THEME.light ? COL.dim : COL.ink });
   ctx.restore();
 }
 function typeLegend(x, y, a, types = TYPES) {
@@ -67,7 +67,7 @@ function typeLegend(x, y, a, types = TYPES) {
   const total = items.reduce((s, i) => s + i.w, 0) + (items.length - 1) * 24; cx = x - total / 2;
   for (const it of items) {
     ctx.save(); ctx.globalAlpha *= a; const rd = LEG_RD[it.t]; rd.draw(ctx, cx + 13, y - 7, 0, { s: 1.15 }); ctx.restore();
-    txt(TYPENAME[it.t], cx + 38, y, { a, size: 21, col: [190, 202, 212] }); cx += it.w + 24;
+    txt(TYPENAME[it.t], cx + 38, y, { a, size: 21, col: COL.legend }); cx += it.w + 24;
   }
 }
 const LEG_RD = { astro: new Round('astro', 3), micro: new Round('micro', 4), endo: new Round('endo', 5), oligo: new Round('oligo', 6), neuron: new Round('neuron', 8) };
@@ -95,7 +95,7 @@ function dissociate(t, gt) {
     ctx.save(); rr(bx - bw / 2 - loosen * 20, by - bh / 2 - loosen * 14, bw + loosen * 40, bh + loosen * 28, 26 + loosen * 60); ctx.clip();
     ctx.translate(bx, by); ctx.scale(.36, .36); ctx.translate(-W / 2, -H / 2); drawTissue(ctx, gt); ctx.restore();
     rr(bx - bw / 2 - loosen * 20, by - bh / 2 - loosen * 14, bw + loosen * 40, bh + loosen * 28, 26 + loosen * 60);
-    ctx.strokeStyle = 'rgba(200,220,230,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = fg(.35); ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
   }
   txt('P5 rodent cortex', bx, by - bh / 2 - 34, { a: seg(t, .2, .8) * blockA, size: 22, w: 500, align: 'center' });
@@ -103,7 +103,7 @@ function dissociate(t, gt) {
   for (let i = 0; i < 5; i++) {
     const t0 = .5 + i * .18, u = seg(t, t0, t0 + .7); if (u <= 0 || u >= 1) continue;
     const x = bx - 120 + i * 60, y = lerp(by - 260, by - bh / 2 + 20, eOut(u) * u);
-    ctx.fillStyle = `rgba(226,236,242,${.8 * (1 - seg(u, .85, 1))})`;
+    ctx.fillStyle = rgb(UI.drop, .8 * (1 - seg(u, .85, 1)));
     ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.quadraticCurveTo(x + 5, y, x, y + 4); ctx.quadraticCurveTo(x - 5, y, x, y - 9); ctx.fill();
   }
   txt('papain', bx + 190, by - 210, { a: bump(t, .5, 1, 2.4, 3), size: 18, it: true, col: COL.dim });
@@ -119,7 +119,7 @@ function panning(T, gt) {
   const t4 = T - TNEG;                  // time into the positive-selection beat
   const bA = seg(T, .6, 1.4);
   const posA = lerp(.45, 1, seg(T, PA0 + 5 * PD - .6, PA0 + 5 * PD));
-  bracket(PLATES[0].x - PR, PLATES[4].x + PR, 318, 'NEGATIVE SELECTION  ·  removed', bA, [170, 182, 194]);
+  bracket(PLATES[0].x - PR, PLATES[4].x + PR, 318, 'NEGATIVE SELECTION  ·  removed', bA, UI.bracket);
   bracket(PLATES[5].x - PR, PLATES[5].x + PR, 318, 'POSITIVE  ·  kept', bA * posA, COL.teal);
   PLATES.forEach((p, i) => {
     const act = i === 5 ? (T > PA0 + 5 * PD - .3 ? 1 : 0) : bump(T, PA0 + i * PD - .3, PA0 + i * PD + .1, PA0 + i * PD + 1.4, PA0 + i * PD + 2);
@@ -195,11 +195,11 @@ function bracket(x0, x1, y, label, a, col) {
   ctx.beginPath(); ctx.moveTo(x0, y + 10); ctx.lineTo(x0, y); ctx.lineTo(x1, y); ctx.lineTo(x1, y + 10); ctx.stroke(); ctx.restore();
   txt(label, (x0 + x1) / 2, y - 12, { a, size: 14, w: 600, ls: 2.5, align: 'center', col });
 }
-function chevron(x, y, a) { if (a <= .004) return; ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = 'rgba(220,232,240,.9)'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x - 5, y - 9); ctx.lineTo(x + 5, y); ctx.lineTo(x - 5, y + 9); ctx.stroke(); ctx.restore(); }
+function chevron(x, y, a) { if (a <= .004) return; ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = fg(.9); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x - 5, y - 9); ctx.lineTo(x + 5, y); ctx.lineTo(x - 5, y + 9); ctx.stroke(); ctx.restore(); }
 function compBar(x, y, w, h, ws, tot, label, a, final) {
   if (a <= .004) return;
   ctx.save(); ctx.globalAlpha *= a;
-  rr(x, y, w, h, h / 2); ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fill();
+  rr(x, y, w, h, h / 2); ctx.fillStyle = fg(.06); ctx.fill();
   ctx.save(); rr(x, y, w, h, h / 2); ctx.clip();
   let cx = x;
   for (const ty of TYPES) { const ww = tot > 0 ? w * ws[ty] / tot : 0; if (ww <= 0) continue; ctx.fillStyle = rgb(ty === 'astro' ? TP.astro.rim : mix(TP[ty].rim, [0, 0, 0], .15)); ctx.fillRect(cx, y, ww, h); cx += ww; }

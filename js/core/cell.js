@@ -81,7 +81,7 @@ class Cell {
     body(rimW); c.fillStyle = rgb(pal.rim); c.fill();
     body(0);
     const g = c.createRadialGradient(0, 0, R0 * .2, 0, 0, R0 * 5.5);
-    g.addColorStop(0, rgb(mix(pal.body, pal.rim, .32))); g.addColorStop(1, rgb(pal.body));
+    g.addColorStop(0, rgb(mix(pal.body, pal.rim, UI.cellMix))); g.addColorStop(1, rgb(pal.body));
     c.fillStyle = g; c.fill();
 
     c.lineCap = 'round'; c.lineJoin = 'round';
@@ -120,13 +120,13 @@ class Cell {
           const dx2 = p[i0 * 2 + 2] - p[i0 * 2], dy2 = p[i0 * 2 + 3] - p[i0 * 2 + 1], dl = Math.hypot(dx2, dy2) || 1;
           const off = s.ws[i0] * .5 + 1.2;
           const px = x - dy2 / dl * off * q.side, py = y + dx2 / dl * off * q.side;
-          c.fillStyle = rgb([226, 250, 255], .9 * pa * a); c.beginPath(); c.arc(px, py, (1.5 + 1.6 * fl) / Math.sqrt(this.sc), 0, TAU); c.fill();
+          c.fillStyle = rgb(UI.punct, .9 * pa * a); c.beginPath(); c.arc(px, py, (1.5 + 1.6 * fl) / Math.sqrt(this.sc), 0, TAU); c.fill();
         }
       }
       if (casp > 0) {     // caspase-2/3 activation
         const cg = c.createRadialGradient(0, 0, 0, 0, 0, R0 * 1.25);
         const pul = .85 + .15 * Math.sin(t * 3);
-        cg.addColorStop(0, rgb([255, 184, 80], .8 * casp * pul)); cg.addColorStop(1, rgb([255, 184, 80], 0));
+        cg.addColorStop(0, rgb(UI.casp, .8 * casp * pul)); cg.addColorStop(1, rgb(UI.casp, 0));
         c.fillStyle = cg; c.beginPath(); c.arc(0, 0, R0 * 1.25, 0, TAU); c.fill();
       }
       this.nucleus(c, R0, pal, .52, .48, eth);

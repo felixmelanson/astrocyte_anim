@@ -63,10 +63,12 @@ const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => 
    ===================================================================== */
 let VIG = null, EDG = null;
 function edgeShade() {
-  if (!EDG) { const E = THEME.bg.map(v => Math.round(v * .57)).join(','); const g = ctx.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, `rgba(${E},.86)`); g.addColorStop(.55, `rgba(${E},.5)`); g.addColorStop(1, `rgba(${E},0)`); const g2 = ctx.createLinearGradient(0, 950, 0, 1080); g2.addColorStop(0, `rgba(${E},0)`); g2.addColorStop(.6, `rgba(${E},.75)`); g2.addColorStop(1, `rgba(${E},.92)`); EDG = [g, g2]; }
+  if (THEME.light) return;                   // dark-only: deepens the caption / footer bands
+  if (!EDG) { const E = PALETTES.dark.col.bg.map(v => Math.round(v * .57)).join(','); const g = ctx.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, `rgba(${E},.86)`); g.addColorStop(.55, `rgba(${E},.5)`); g.addColorStop(1, `rgba(${E},0)`); const g2 = ctx.createLinearGradient(0, 950, 0, 1080); g2.addColorStop(0, `rgba(${E},0)`); g2.addColorStop(.6, `rgba(${E},.75)`); g2.addColorStop(1, `rgba(${E},.92)`); EDG = [g, g2]; }
   ctx.fillStyle = EDG[0]; ctx.fillRect(0, 0, W, 210); ctx.fillStyle = EDG[1]; ctx.fillRect(0, 950, W, 130);
 }
 function vignette() {
+  if (THEME.light) return;
   if (!VIG) { VIG = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * 1.02); VIG.addColorStop(0, 'rgba(0,0,0,0)'); VIG.addColorStop(1, 'rgba(0,0,0,.55)'); }
   ctx.fillStyle = VIG; ctx.fillRect(0, 0, W, H);
 }
@@ -90,16 +92,17 @@ addEventListener('keydown', e => {
 });
 let idleT; addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 1800); });
 
-// light theme: the canvas is drawn exactly as usual and inverted by CSS (bg → white, text → near-black)
-const FLASH = document.getElementById('flash');
-let THEME_ON = null, FLASH_A = -1;
+// light theme: from step THEME.lightFrom onward the scenes draw with the light palette (theme.js).
+// Scene 1 stays dark; arriving via the tissue hand-off, a white flash (drawn on the canvas, so it
+// also shows up in exported video) covers the switch.
+let FLASH_A = 0;
 function applyTheme(k, t) {
-  const lf = THEME.lightFrom; if (lf < 0) { if (THEME_ON !== false) { THEME_ON = false; cv.style.filter = 'none'; document.body.style.background = '#000'; } return false; }
-  const viaHandoff = k === lf && lf === 2 && handoffPlays();
-  const on = k > lf || (k === lf && (!viaHandoff || t >= TR - .28));
-  const fl = viaHandoff ? .85 * bump(t, TR - .62, TR - .3, TR - .24, TR + .35) : 0;
-  if (on !== THEME_ON) { THEME_ON = on; cv.style.filter = on ? 'invert(1) hue-rotate(180deg)' : 'none'; document.body.style.background = on ? '#fff' : '#000'; }
-  if (Math.abs(fl - FLASH_A) > .002) { FLASH_A = fl; FLASH.style.opacity = fl.toFixed(3); }
+  const lf = THEME.lightFrom;
+  const viaHandoff = lf >= 0 && k === lf && lf === 2 && handoffPlays();
+  const on = lf >= 0 && (k > lf || (k === lf && (!viaHandoff || t >= TR - .28)));
+  FLASH_A = viaHandoff ? .85 * bump(t, TR - .62, TR - .3, TR - .24, TR + .35) : 0;
+  THEME.light = on;
+  const bg = on ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)'; if (document.body.style.background !== bg) document.body.style.background = bg;
   return on;
 }
 // the previous step's caption fades out when stepping forward inside a scene
@@ -112,25 +115,26 @@ function carryCaption(k, t) {
 }
 function render(k, t, gt) {
   ctx.setTransform(SCL * DPR, 0, 0, SCL * DPR, 0, 0);
-  const light = applyTheme(k, t);
-  ctx.fillStyle = light ? '#000' : rgb(COL.bg); ctx.fillRect(0, 0, W, H);
+  applyTheme(k, t);
+  ctx.fillStyle = rgb(COL.bg); ctx.fillRect(0, 0, W, H);
   const S = STEPS[k], sc = S.sc;
   ctx.save(); SCENES[sc](S.k, t, gt, S); ctx.restore();
   carryCaption(k, t);
   // scene fade (from the page colour) when entering a new scene
   const enteredScene = prevStep < 0 || STEPS[prevStep].sc !== sc;
   const seamless = sc === 2 && S.k === 0 && handoffPlays() && prevStep >= 0;   // tissue hand-off replaces the fade
-  if (enteredScene && !seamless) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = `rgba(0,0,0,${f})`; ctx.fillRect(0, 0, W, H); } }
+  if (enteredScene && !seamless) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
   // step dots (H toggles)
   if (hud) {
     for (let i = 0; i < STEPS.length; i++) {
       const x = W - 64 - (STEPS.length - 1 - i) * 13, on = i === k;
-      ctx.fillStyle = on ? 'rgba(236,242,246,.9)' : i < k ? 'rgba(236,242,246,.35)' : 'rgba(236,242,246,.13)';
+      ctx.fillStyle = fg(on ? .9 : i < k ? .35 : .13);
       ctx.beginPath(); ctx.arc(x, 1046, on ? 3.4 : 2.4, 0, TAU); ctx.fill();
-      if (i > 0 && STEPS[i].sc !== STEPS[i - 1].sc) { ctx.fillStyle = 'rgba(236,242,246,.1)'; ctx.fillRect(x - 7.5, 1040, 1, 12); }
+      if (i > 0 && STEPS[i].sc !== STEPS[i - 1].sc) { ctx.fillStyle = fg(.1); ctx.fillRect(x - 7.5, 1040, 1, 12); }
     }
   }
-  txt(S.cite || '', 64, 1052, { size: 15, col: [112, 126, 138] });   // per-step citation
+  txt(S.cite || '', 64, 1052, { size: 15, col: COL.foot });   // per-step citation
+  if (FLASH_A > .002) { ctx.fillStyle = `rgba(255,255,255,${FLASH_A})`; ctx.fillRect(0, 0, W, H); }
 }
 
 /* ---------------- playback: play / pause / scrub ----------------

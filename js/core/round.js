@@ -17,7 +17,7 @@ class Round {
     const fn = th => { let f = 1; for (const q of this.h) f += q.a * Math.sin(q.k * th + q.p + t * .6); for (const s of this.st) { const d = angd(th, s.a); f += s.h * Math.exp(-d * d / (s.w * s.w)); } return f; };
     c.beginPath(); addSoma(c, R0, fn, 1, 1.4); c.fillStyle = rgb(pal.rim); c.fill();
     c.beginPath(); addSoma(c, R0, fn, 1, 0);
-    const g = c.createRadialGradient(0, 0, 0, 0, 0, R0 * 1.3); g.addColorStop(0, rgb(mix(pal.body, pal.rim, .35))); g.addColorStop(1, rgb(pal.body)); c.fillStyle = g; c.fill();
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, R0 * 1.3); g.addColorStop(0, rgb(mix(pal.body, pal.rim, UI.cellMix + .03))); g.addColorStop(1, rgb(pal.body)); c.fillStyle = g; c.fill();
     c.beginPath(); c.ellipse(this.no[0] * R0, this.no[1] * R0, R0 * .5, R0 * .42, 0, 0, TAU); c.fillStyle = rgb(pal.nuc, .9); c.fill();
     if (b > 0) { c.setLineDash([2, 2.5]); c.strokeStyle = rgb(pal.rim, .55 * b); c.lineWidth = 1; c.beginPath(); c.arc(0, 0, R0 * 1.45, 0, TAU); c.stroke(); }
     c.restore();

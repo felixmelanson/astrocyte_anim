@@ -32,7 +32,13 @@ const TIS = { cells: [], pairs: [], axons: [], hero: null, nb: [], bg: null };
   const h = TIS.hero;
   TIS.nb = cs.map((o, j) => [j, Math.hypot(o.x - h.x, o.y - h.y)]).filter(q => q[0] !== 0).sort((a, b) => a[1] - b[1]).slice(0, 8).map(q => q[0]);
   TIS.order = cs.map((c, i) => i).sort((a, b) => { const r = { neuron: 0, oligo: 1, astro: 2, micro: 3 }; return r[cs[a].type] - r[cs[b].type]; });
-  // blurred deep-focus layer + neuropil
+  // blurred deep-focus layer + neuropil, one per palette (the cortex block in scene 2 can be light)
+  const keep = THEME.light;
+  TIS.bg = {};
+  for (const light of [false, true]) { THEME.light = light; TIS.bg[light ? 'light' : 'dark'] = tissueBg(); }
+  THEME.light = keep;
+})();
+function tissueBg() {
   const bg = document.createElement('canvas'); bg.width = W; bg.height = H; const b = bg.getContext('2d');
   const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H; const tc = tmp.getContext('2d');
   const R2 = rng(99);
@@ -45,19 +51,19 @@ const TIS = { cells: [], pairs: [], axons: [], hero: null, nb: [], bg: null };
   b.lineCap = 'round';
   for (let i = 0; i < 900; i++) {
     const x = R2() * W, y = R2() * H, a = R2() * TAU, l = 20 + R2() * 70;
-    b.strokeStyle = `rgba(120,190,200,${.03 + R2() * .04})`; b.lineWidth = .6 + R2() * .8;
+    b.strokeStyle = rgb(UI.neuropil, .03 + R2() * .04); b.lineWidth = .6 + R2() * .8;
     b.beginPath(); b.moveTo(x, y); b.quadraticCurveTo(x + Math.cos(a + .6) * l * .5, y + Math.sin(a + .6) * l * .5, x + Math.cos(a) * l, y + Math.sin(a) * l); b.stroke();
   }
-  for (let i = 0; i < 1400; i++) { b.fillStyle = `rgba(150,210,220,${.03 + R2() * .05})`; b.beginPath(); b.arc(R2() * W, R2() * H, .6 + R2() * 1.1, 0, TAU); b.fill(); }
-  TIS.bg = bg;
-})();
+  for (let i = 0; i < 1400; i++) { b.fillStyle = rgb(mix(UI.neuropil, [255, 255, 255], THEME.light ? 0 : .2), .03 + R2() * .05); b.beginPath(); b.arc(R2() * W, R2() * H, .6 + R2() * 1.1, 0, TAU); b.fill(); }
+  return bg;
+}
 function drawVessel(c, t, a = 1) {
   c.save(); c.globalAlpha *= a; c.lineCap = 'round'; c.lineJoin = 'round';
   const path = () => { c.beginPath(); VES.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); };
   path(); c.strokeStyle = rgb(TP.endo.rim); c.lineWidth = VW + 3; c.stroke();
   path(); c.strokeStyle = rgb(TP.endo.body); c.lineWidth = VW; c.stroke();
-  path(); c.strokeStyle = 'rgb(9,13,18)'; c.lineWidth = VW - 11; c.stroke();
-  path(); c.strokeStyle = 'rgba(166,180,196,.1)'; c.lineWidth = VW - 22; c.stroke();
+  path(); c.strokeStyle = rgb(UI.lumen); c.lineWidth = VW - 11; c.stroke();
+  path(); c.strokeStyle = rgb(TP.endo.rim, .1); c.lineWidth = VW - 22; c.stroke();
   for (let i = 3; i < VES.length - 2; i += 6) {       // endothelial nuclei, flattened along the wall
     const p = VES[i], q = VES[i + 1], an = Math.atan2(q[1] - p[1], q[0] - p[0]), side = (i / 6) % 2 ? 1 : -1;
     const ox = -Math.sin(an) * side * (VW / 2 - 3), oy = Math.cos(an) * side * (VW / 2 - 3);
@@ -68,7 +74,7 @@ function drawVessel(c, t, a = 1) {
 }
 // o.focus (0..1): the hero astrocyte and its neighbours stay sharp; everything else goes out of focus
 function tissueLayer(c, t, o, backOnly, backA = 1) {
-  c.drawImage(TIS.bg, 0, 0);
+  c.drawImage(TIS.bg[THEME.light ? 'light' : 'dark'], 0, 0);
   c.save(); c.lineCap = 'round'; c.strokeStyle = rgb(TP.neuron.rim, .42); c.lineWidth = 2.2;
   for (const ax of TIS.axons) { const dx = Math.cos(ax.A) * ax.len / 2, dy = Math.sin(ax.A) * ax.len / 2; c.beginPath(); c.moveTo(ax.x - dx, ax.y - dy); c.lineTo(ax.x + dx, ax.y + dy); c.stroke(); }
   c.restore();
@@ -191,7 +197,7 @@ const BLOCK_T = { cx: 960, cy: 540, w: 420 / .36, h: 270 / .36, r: 26 / .36 };  
 const SNAP = { key: '', f: null, u: null };
 function tissueSnap(gtE) {
   const q = Math.min(1.5, SCL * DPR), pt = prevStep === 1 ? prevT : 0;
-  const key = gtE.toFixed(3) + '|' + q + '|' + pt.toFixed(3);
+  const key = gtE.toFixed(3) + '|' + q + '|' + pt.toFixed(3) + '|' + THEME.light;
   if (SNAP.key === key) return SNAP;
   const cw = Math.round(W * q), ch = Math.round(H * q);
   for (const k of ['f', 'u']) if (!SNAP[k] || SNAP[k].width !== cw) { SNAP[k] = document.createElement('canvas'); SNAP[k].width = cw; SNAP[k].height = ch; }
@@ -251,7 +257,7 @@ function tissueHandoff(t, gt) {
     const n = BLOCK_P.length - 1, m = Math.round(cut * n / 2);
     const lineA = cut < 1 ? .95 : lerp(.95, .35, e), lw = lerp(2.2, 1.5, e);
     ctx.save(); toBlock(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = e > 0 ? `rgba(${lerp(240, 200, e) | 0},${lerp(246, 220, e) | 0},${lerp(250, 230, e) | 0},${lineA})` : `rgba(240,246,250,${lineA})`;
+    ctx.strokeStyle = THEME.light ? fg(lineA) : e > 0 ? `rgba(${lerp(240, 200, e) | 0},${lerp(246, 220, e) | 0},${lerp(250, 230, e) | 0},${lineA})` : `rgba(240,246,250,${lineA})`;
     ctx.lineWidth = lw / kk;
     ctx.beginPath(); ctx.moveTo(BLOCK_P[0][0], BLOCK_P[0][1]); for (let i = 1; i <= m; i++) ctx.lineTo(BLOCK_P[i][0], BLOCK_P[i][1]); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(BLOCK_P[n][0], BLOCK_P[n][1]); for (let i = n - 1; i >= n - m; i--) ctx.lineTo(BLOCK_P[i][0], BLOCK_P[i][1]); ctx.stroke();

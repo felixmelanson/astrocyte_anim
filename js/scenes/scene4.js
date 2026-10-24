@@ -22,8 +22,10 @@ const F = {
   concN: new Field(22, [['tox', 34], ['other', 16], ['tnf', 4], ['c1q', 4]], FR),
   mcmN: new Field(23, [['il1', 9], ['tnf', 9], ['c1q', 7], ['other', 22]], FR),
 };
-const DOTS = { mcm: [PC.il1, PC.tnf, PC.other, PC.c1q, PC.other, PC.il1, PC.tnf, PC.other, PC.c1q, PC.other], lps: Array(8).fill(PC.lps), cyto: [PC.il1, PC.tnf, PC.c1q, PC.il1, PC.tnf, PC.c1q, PC.il1, PC.tnf], rest: Array(5).fill(PC.other), nab: [PC.gray, PC.ab, PC.other, PC.gray, PC.ab, PC.other, PC.gray, PC.ab], acm: [PC.tox, PC.other, PC.tox, PC.tox, PC.other, PC.tox, PC.other, PC.tox], conc: Array(12).fill(0).map((_, i) => i % 3 ? PC.tox : PC.other) };
-const LIQ = { mcm: [58, 72, 84], lps: [70, 76, 80], cyto: [66, 72, 70], rest: [52, 64, 74], acm: [92, 64, 62], conc: [120, 70, 64] };
+// molecule dots in tips / tubes, as PC keys so they follow the theme
+const DOTS = { mcm: ['il1', 'tnf', 'other', 'c1q', 'other', 'il1', 'tnf', 'other', 'c1q', 'other'], lps: Array(8).fill('lps'), cyto: ['il1', 'tnf', 'c1q', 'il1', 'tnf', 'c1q', 'il1', 'tnf'], rest: Array(5).fill('other'), nab: ['gray', 'ab', 'other', 'gray', 'ab', 'other', 'gray', 'ab'], acm: ['tox', 'other', 'tox', 'tox', 'other', 'tox', 'other', 'tox'], conc: Array(12).fill(0).map((_, i) => i % 3 ? 'tox' : 'other') };
+const LIQ = {   // dark-theme medium colours; liqC() lightens them for the light theme
+  mcm: [58, 72, 84], lps: [70, 76, 80], cyto: [66, 72, 70], rest: [52, 64, 74], acm: [92, 64, 62], conc: [120, 70, 64] };
 // step = the scene-4 step (k) whose result produces this ledger card
 const CARDS = [
   { l1: 'LPS', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 1 },
@@ -276,7 +278,7 @@ function renderRelay(s, t, gt, st) {   // s = scene-4 step k
     if (wa > 0) drawWells(st.wells.t, gt, wa);
     txt('Retinal ganglion cells', DX.N, DY + DR + 40, { a: a * (1 - wa), size: 24, w: 600, align: 'center' });
     txt(st.nSub, DX.N, DY + DR + 66, { a: a * (1 - wa) * (st.nSub ? 1 : 0), size: 17, align: 'center', col: st.nSub === 'survive' ? COL.teal : COL.dim });
-    if (st.casp) { txt('caspase-2/3 → apoptosis', DX.N, DY + DR + 94, { a: st.casp * (1 - wa), size: 16, align: 'center', col: [255, 190, 110] }); }
+    if (st.casp) { txt('caspase-2/3 → apoptosis', DX.N, DY + DR + 94, { a: st.casp * (1 - wa), size: 16, align: 'center', col: UI.caspText }); }
   }
   // --- AQP4 inset (in vivo, Ext. Data Fig. 5a)
   if (st.inset && st.inset.a > 0) drawAQP4(1260, 440, 94, st.inset.r, st.inset.a, gt);
@@ -312,7 +314,7 @@ function drawLegend(st) {
     const col = i % 3, row = (i / 3) | 0, x = 1250 + col * 222, y = 50 + row * 40;
     const ia = a * it[2]; if (ia <= .004) return;
     glyph(ctx, it[0], x, y - 7, GSIZE[it[0]] * 1.35 * (it[0] === 'other' ? 1.3 : 1), it[0] === 'ab' ? 0 : 0, ia);
-    txt(it[1], x + 24, y, { a: ia, size: 19, col: [190, 202, 212] });
+    txt(it[1], x + 24, y, { a: ia, size: 19, col: COL.legend });
   });
 }
 function drawLedger(s, t, gt, st) {
@@ -322,8 +324,8 @@ function drawLedger(s, t, gt, st) {
     const cx = cardX(i), f = flyOf(i);
     const vis = i < shown ? 1 : f ? seg(t, f.tf + .7, f.tf + 1.1) : 0;
     ctx.save(); rr(cx - 102, CARDY - 94, 204, 188, 12);
-    ctx.fillStyle = `rgba(255,255,255,${.022 + .018 * vis})`; ctx.fill();
-    ctx.strokeStyle = `rgba(255,255,255,${.05 + .05 * vis})`; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+    ctx.fillStyle = fg(.022 + .018 * vis); ctx.fill();
+    ctx.strokeStyle = fg((.05 + .05 * vis) * UI.rimA); ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
     txt(String(i + 1).padStart(2, '0'), cx - 88, CARDY - 72, { a: .35 + .4 * vis, size: 12, w: 600, ls: 1.5, col: COL.dim });
     if (vis <= 0) return;
     txt(cd.l1, cx, CARDY - 48, { a: vis, size: 14.5, w: 500, align: 'center' });
@@ -340,7 +342,7 @@ function drawLedger(s, t, gt, st) {
     ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / DR, r / DR);
     if (cd.k === 'a') AST.forEach(c => c.draw(ctx, { t: gt, r: cd.r })); else RGC.forEach(c => c.draw(ctx, { t: gt, d: cd.d, noPuncta: true }));
     ctx.restore(); drawDishRim(x, y, r); ctx.restore();
-    ctx.save(); ctx.globalAlpha *= .6 * (1 - u); ctx.strokeStyle = 'rgba(220,235,245,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.globalAlpha *= .6 * (1 - u); ctx.strokeStyle = fg(.8); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
   }
 }
 function miniDish(x, y, cd, gt, a) {
@@ -363,13 +365,13 @@ function drawWells(t, gt, a) {
     txt(D.d + ' µg/ml', x, y - wr - 10, { a: a * (w < 2 ? 1 : 0), size: 15, w: 600, align: 'center' });
     if (w >= 2) txt(D.d + ' µg/ml', x, y + wr + 22, { a, size: 15, w: 600, align: 'center' });
     const sc = seg(t, 5.5, 6.3) * a;
-    ctx.save(); ctx.globalAlpha *= sc; ctx.fillStyle = 'rgba(7,11,15,.72)'; rr(x - 36, y - 15, 72, 30, 8); ctx.fill(); ctx.restore();
-    txt(D.s, x, y + 7, { a: sc, size: 19, w: 600, align: 'center', col: D.n > 15 ? COL.teal : D.n > 5 ? [230, 200, 170] : COL.coral });
+    ctx.save(); ctx.globalAlpha *= sc; ctx.fillStyle = rgb(UI.pill, UI.pillA); rr(x - 36, y - 15, 72, 30, 8); ctx.fill(); ctx.restore();
+    txt(D.s, x, y + 7, { a: sc, size: 19, w: 600, align: 'center', col: D.n > 15 ? COL.teal : D.n > 5 ? UI.midSurv : COL.coral });
   });
 }
 function drawAQP4(x, y, r, rr_, a, gt) {
   ctx.save(); ctx.globalAlpha *= a;
-  ctx.fillStyle = 'rgb(9,14,19)'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = rgb(UI.lumen); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
   ctx.save(); clipCircle(x, y, r - 1);
   const vx = x - 16, vy = y + 24, vr = 36;
   ctx.strokeStyle = rgb(TP.endo.rim); ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(vx, vy, vr, 0, TAU); ctx.stroke();
@@ -393,10 +395,10 @@ function drawAQP4(x, y, r, rr_, a, gt) {
     const an = lerp(endA0 + .1, endA1 - .1, R()), home = [vx + Math.cos(an) * (er + (R() - .5) * 4), vy + Math.sin(an) * (er + (R() - .5) * 4)];
     const u = R(), dsp = u < .45 ? [sx + (R() - .5) * 20, sy + (R() - .5) * 20] : [lerp(vx + Math.cos(-1.05) * er, sx, R()) + (R() - .5) * 8, lerp(vy + Math.sin(-1.05) * er, sy, R()) + (R() - .5) * 6];
     const px = lerp(home[0], dsp[0], k), py = lerp(home[1], dsp[1], k);
-    ctx.fillStyle = 'rgba(238,244,255,.95)'; ctx.beginPath(); ctx.arc(px, py, 1.7, 0, TAU); ctx.fill();
+    ctx.fillStyle = rgb(UI.aqpDot, .95); ctx.beginPath(); ctx.arc(px, py, 1.7, 0, TAU); ctx.fill();
   }
   ctx.restore();
-  ctx.strokeStyle = 'rgba(220,235,245,.45)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = fg(.45); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
   ctx.restore();
   txt('in vivo · AQP4', x, y - r - 12, { a, size: 13, w: 600, ls: 2, align: 'center', col: COL.dim });
   txt(rr_ > .5 ? 'leaves the endfoot' : 'on the endfoot', x, y + r + 22, { a, size: 14, align: 'center', col: COL.dim });
@@ -404,7 +406,7 @@ function drawAQP4(x, y, r, rr_, a, gt) {
 function drawNabWell(x, y, r, t, gt, W_) {
   const a = W_.a;
   ctx.save(); ctx.globalAlpha *= a;
-  drawDish(x, y, r, { tint: [20, 26, 34] });
+  drawDish(x, y, r, { tint: UI.dish });
   ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y);
   const f = F.well, o = { t0: W_.td, origin: () => [0, -18], stag: .4, wander: .6 };
   const cyt = f.ps.filter(p => p.type !== 'other');
@@ -424,7 +426,7 @@ function drawNabWell(x, y, r, t, gt, W_) {
     if (abPos && bnd <= .5) { ctx.save(); ctx.translate(abPos[0], abPos[1]); gAb(ctx, 15, 1); ctx.restore(); }
   }
   ctx.restore(); drawDishRim(x, y, r); ctx.restore();
-  txt('+ anti-IL-1α / TNF / C1q', x, y + r + 22, { a: a * seg(t, W_.tb - .4, W_.tb + .3), size: 15, align: 'center', col: [210, 220, 230] });
+  txt('+ anti-IL-1α / TNF / C1q', x, y + r + 22, { a: a * seg(t, W_.tb - .4, W_.tb + .3), size: 15, align: 'center', col: COL.legend });
 }
 function drawFilter(x, y, F_, gt) {
   const a = F_.a; if (a <= .004) return;
@@ -434,28 +436,28 @@ function drawFilter(x, y, F_, gt) {
   const top = -72, mem = 52, bot = 112, w = 30, wi = 22;
   // outer tube
   ctx.beginPath(); ctx.moveTo(-w, top); ctx.lineTo(w, top); ctx.lineTo(w, bot - 20); ctx.quadraticCurveTo(w, bot, 0, bot); ctx.quadraticCurveTo(-w, bot, -w, bot - 20); ctx.closePath();
-  ctx.fillStyle = 'rgba(205,222,234,.05)'; ctx.fill(); ctx.strokeStyle = 'rgba(210,225,236,.5)'; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.fillStyle = rgb(UI.rim, UI.glassA * .6); ctx.fill(); ctx.strokeStyle = rgb(UI.rim, Math.min(1, .5 * UI.rimA)); ctx.lineWidth = 1.3; ctx.stroke();
   // filtrate (below membrane) rises
   const fl = F_.conc * (bot - mem - 16);
   ctx.save(); ctx.beginPath(); ctx.rect(-w + 1, bot - 4 - fl, 2 * w - 2, fl + 4); ctx.clip();
-  ctx.fillStyle = 'rgba(120,160,190,.25)'; ctx.beginPath(); ctx.moveTo(-w + 1, mem); ctx.lineTo(w - 1, mem); ctx.lineTo(w - 1, bot - 20); ctx.quadraticCurveTo(w - 1, bot - 1, 0, bot - 1); ctx.quadraticCurveTo(-w + 1, bot - 1, -w + 1, bot - 20); ctx.closePath(); ctx.fill(); ctx.restore();
+  ctx.fillStyle = rgb(UI.filtrate, .25); ctx.beginPath(); ctx.moveTo(-w + 1, mem); ctx.lineTo(w - 1, mem); ctx.lineTo(w - 1, bot - 20); ctx.quadraticCurveTo(w - 1, bot - 1, 0, bot - 1); ctx.quadraticCurveTo(-w + 1, bot - 1, -w + 1, bot - 20); ctx.closePath(); ctx.fill(); ctx.restore();
   // insert
-  ctx.strokeStyle = 'rgba(210,225,236,.4)'; ctx.beginPath(); ctx.moveTo(-wi, top); ctx.lineTo(-wi, mem); ctx.moveTo(wi, top); ctx.lineTo(wi, mem); ctx.stroke();
+  ctx.strokeStyle = rgb(UI.rim, Math.min(1, .4 * UI.rimA)); ctx.beginPath(); ctx.moveTo(-wi, top); ctx.lineTo(-wi, mem); ctx.moveTo(wi, top); ctx.lineTo(wi, mem); ctx.stroke();
   // retentate
   const lvl0 = mem - top - 20, lvl = F_.fill * lerp(lvl0, 7, F_.conc);
   if (lvl > 0) {
-    ctx.fillStyle = rgb(mix([92, 64, 62], [150, 70, 60], F_.conc), .6); ctx.fillRect(-wi + 1, mem - lvl, 2 * wi - 2, lvl);
+    ctx.fillStyle = rgb(liqC(mix([92, 64, 62], [150, 70, 60], F_.conc)), .6); ctx.fillRect(-wi + 1, mem - lvl, 2 * wi - 2, lvl);
     const R = rng(77);
     for (let i = 0; i < 26; i++) { const px = (R() - .5) * (2 * wi - 8), py = mem - R() * lvl * .92; const tox = R() < .65; ctx.fillStyle = rgb(tox ? PC.tox : PC.other, F_.fill); ctx.beginPath(); ctx.arc(px, py, tox ? 2.1 : 1.6, 0, TAU); ctx.fill(); }
   }
   // small molecules pass the 30 kDa membrane
-  if (F_.spin > 0) { for (let i = 0; i < 12; i++) { const u = ((gt * .9 + i / 12) % 1); ctx.fillStyle = `rgba(170,205,230,${.8 * F_.spin * Math.sin(u * Math.PI)})`; ctx.beginPath(); ctx.arc(((i * 7.1) % 36) - 18, lerp(mem - 18, mem + 34, u), 1, 0, TAU); ctx.fill(); }
+  if (F_.spin > 0) { for (let i = 0; i < 12; i++) { const u = ((gt * .9 + i / 12) % 1); ctx.fillStyle = rgb(UI.small, .8 * F_.spin * Math.sin(u * Math.PI)); ctx.beginPath(); ctx.arc(((i * 7.1) % 36) - 18, lerp(mem - 18, mem + 34, u), 1, 0, TAU); ctx.fill(); }
     // IL-1α (~18 kDa) also passes the membrane; TNF trimer (~52 kDa) and C1q (~460 kDa) are retained
     for (let j = 0; j < 2; j++) { const u = (gt * .38 + j * .5) % 1; if (u < .6) { const v = u / .6; glyph(ctx, 'il1', j ? 7 : -8, lerp(mem - 22, mem + 30, v), 7, gt * .8 + j, F_.spin * Math.sin(v * Math.PI)); } } }
-  ctx.setLineDash([3, 2]); ctx.strokeStyle = 'rgba(235,240,245,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-wi, mem); ctx.lineTo(wi, mem); ctx.stroke(); ctx.setLineDash([]);
+  ctx.setLineDash([3, 2]); ctx.strokeStyle = fg(.85); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-wi, mem); ctx.lineTo(wi, mem); ctx.stroke(); ctx.setLineDash([]);
   ctx.restore();
-  txt('30 kDa', x - w - 10, y + mem + 5, { a, size: 14, align: 'right', col: [210, 220, 230] });
-  if (F_.spin > 0) { ctx.save(); ctx.globalAlpha *= a * F_.spin; ctx.translate(x + w + 26, y - 10); ctx.rotate(gt * 6); ctx.strokeStyle = 'rgba(220,232,240,.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 4.6); ctx.stroke(); ctx.fillStyle = 'rgba(220,232,240,.8)'; ctx.beginPath(); ctx.moveTo(11 * Math.cos(4.6) + 4, 11 * Math.sin(4.6) + 4); ctx.lineTo(11 * Math.cos(4.6) - 5, 11 * Math.sin(4.6) + 1); ctx.lineTo(11 * Math.cos(4.6) + 1, 11 * Math.sin(4.6) - 6); ctx.fill(); ctx.restore(); }
+  txt('30 kDa', x - w - 10, y + mem + 5, { a, size: 14, align: 'right', col: COL.legend });
+  if (F_.spin > 0) { ctx.save(); ctx.globalAlpha *= a * F_.spin; ctx.translate(x + w + 26, y - 10); ctx.rotate(gt * 6); ctx.strokeStyle = fg(.8); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 4.6); ctx.stroke(); ctx.fillStyle = fg(.8); ctx.beginPath(); ctx.moveTo(11 * Math.cos(4.6) + 4, 11 * Math.sin(4.6) + 4); ctx.lineTo(11 * Math.cos(4.6) - 5, 11 * Math.sin(4.6) + 1); ctx.lineTo(11 * Math.cos(4.6) + 1, 11 * Math.sin(4.6) - 6); ctx.fill(); ctx.restore(); }
   txt('30–50×', x + w + 12, y + 20, { a: a * F_.lab, size: 22, w: 600, col: COL.coral });
   txt('concentrated', x + w + 12, y + 40, { a: a * F_.lab, size: 13, col: COL.dim });
 }

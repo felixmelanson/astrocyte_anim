@@ -14,19 +14,19 @@ const HROWS = [
 ];
 (() => { const R = rng(55); HROWS.forEach(row => { row.z = GLIST.map(([g, grp]) => row.a1 ? (grp === 0 ? .8 + R() * 1.2 : grp === 1 ? 1.0 + R() * 1.0 : -1.1 + R() * 1.5) : (-1.5 + R() * 1.25)); }); })();
 
-function heatCol(z) { return z < 0 ? mix([28, 34, 42], [46, 150, 168], clamp(-z / 2)) : mix([28, 34, 42], [255, 122, 96], clamp(z / 2)); }
+function heatCol(z) { return z < 0 ? mix(UI.heat0, UI.heatNeg, clamp(-z / 2)) : mix(UI.heat0, UI.heatPos, clamp(z / 2)); }
 const HM = { x0: 640, cw: 28, cg: 8, rh: 42 };
 const hx = (col, grp) => HM.x0 + col * HM.cw + grp * HM.cg;
 const HGROUPS = [[0, 12, 'Pan-reactive'], [13, 24, 'A1-specific'], [25, 36, 'A2-specific']];
 // group bars + names + gene names. grow(gi) = bar sweep 0..1, nameA(gi) / geneA(gi) = label alphas
 function drawHeatHeader(y0, grow, nameA, geneA) {
-  const gc = [[196, 206, 214], COL.coral, [110, 132, 162]];
+  const gc = [UI.grpPan, COL.coral, UI.grpA2];
   HGROUPS.forEach(([c0, c1, name], gi) => {
     const x0 = hx(c0, gi), x1 = hx(c1, gi) + HM.cw - 1.5, g = grow(gi);
     if (g > 0) { ctx.save(); ctx.fillStyle = rgb(gc[gi]); ctx.fillRect(x0, y0 - 92, (x1 - x0) * g, 10); ctx.restore(); }
     txt(name, (x0 + x1) / 2, y0 - 102, { a: nameA(gi), size: 16, w: 600, align: 'center', col: gc[gi] });
   });
-  GLIST.forEach(([g, grp], col) => txt(g, hx(col, grp) + 18, y0 - 8, { a: geneA(grp), size: 12.5, it: true, rot: -Math.PI / 2, col: [176, 188, 198] }));
+  GLIST.forEach(([g, grp], col) => txt(g, hx(col, grp) + 18, y0 - 8, { a: geneA(grp), size: 12.5, it: true, rot: -Math.PI / 2, col: UI.gene }));
 }
 // one row: fill = 0 → empty outlined cells, 1 → z-score colours
 function drawHeatRow(y, z, a, fill, label, labA, labCol) {
@@ -36,10 +36,10 @@ function drawHeatRow(y, z, a, fill, label, labA, labCol) {
     const on = z ? sstep(seg(fill, col / 37 * .6, col / 37 * .6 + .4)) : 0;
     rr(hx(col, grp), y, HM.cw - 1.5, HM.rh - 2, 1.5);
     if (on > 0) { ctx.fillStyle = rgb(heatCol(z[col]), on); ctx.fill(); }
-    if (on < 1) { ctx.strokeStyle = `rgba(236,242,246,${.22 * (1 - on)})`; ctx.lineWidth = 1; ctx.stroke(); }
+    if (on < 1) { ctx.strokeStyle = fg(.22 * (1 - on) * UI.rimA); ctx.lineWidth = 1; ctx.stroke(); }
   });
   ctx.restore();
-  txt(label, HM.x0 - 16, y + 27, { a: a * labA, size: 16, align: 'right', col: labCol || [196, 206, 214] });
+  txt(label, HM.x0 - 16, y + 27, { a: a * labA, size: 16, align: 'right', col: labCol || UI.row });
 }
 function scene5(k, t, gt, S) {
   if (k === 0) {
@@ -56,7 +56,7 @@ function scene5(k, t, gt, S) {
   drawHeatHeader(y0, () => hA, () => hA, () => hA);
   HROWS.forEach((row, ri) => {
     const t0 = ri === 0 ? .4 : 1.0 + ri * .45, ra = seg(t, t0, t0 + .5);
-    drawHeatRow(y0 + ri * HM.rh + (1 - ra) * 30, row.z, ra, seg(t, t0 + .2, t0 + 1.2), row.name, 1, row.a1 ? [236, 210, 200] : [196, 206, 214]);
+    drawHeatRow(y0 + ri * HM.rh + (1 - ra) * 30, row.z, ra, seg(t, t0 + .2, t0 + 1.2), row.name, 1, row.a1 ? UI.rowA1 : UI.row);
   });
   const labA = seg(t, 4.0, 4.8);
   if (labA > 0) {   // colour bar

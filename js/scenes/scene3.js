@@ -11,14 +11,14 @@ function scene3(k, t, gt, S) {
   const u = t - SLIDE, slide = ease(seg(u, 0, 1.4));
   const lx = lerp(960, 600, slide), y = 500, r = 270;
   const rF = .45 * ease(seg(t, 2.4, 5.4));
-  const tint = mix([15, 24, 31], [34, 29, 20], seg(t, 1.6, 3));
+  const tint = mix(UI.dish, UI.serum, seg(t, 1.6, 3));
   drawDish(lx, y, r, { tint });
   ctx.save(); clipCircle(lx, y, r - 4); ctx.translate(lx, y); AST3a.forEach(c => c.draw(ctx, { t: gt, r: rF, colR: 0 })); ctx.restore();
   drawDishRim(lx, y, r);
   // serum drop
   const du = seg(t, .8, 1.7);
-  if (du > 0 && du < 1) { const yy = lerp(y - 380, y - 40, du * du); ctx.fillStyle = rgb([226, 206, 150], .85); ctx.beginPath(); ctx.moveTo(lx, yy - 14); ctx.quadraticCurveTo(lx + 8, yy, lx, yy + 6); ctx.quadraticCurveTo(lx - 8, yy, lx, yy - 14); ctx.fill(); }
-  const rip = seg(t, 1.7, 3.2); if (rip > 0 && rip < 1) { ctx.strokeStyle = rgb([226, 206, 150], .5 * (1 - rip)); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, y - 40, rip * 200, 0, TAU); ctx.stroke(); }
+  if (du > 0 && du < 1) { const yy = lerp(y - 380, y - 40, du * du); ctx.fillStyle = rgb(UI.serumDrop, .85); ctx.beginPath(); ctx.moveTo(lx, yy - 14); ctx.quadraticCurveTo(lx + 8, yy, lx, yy + 6); ctx.quadraticCurveTo(lx - 8, yy, lx, yy - 14); ctx.fill(); }
+  const rip = seg(t, 1.7, 3.2); if (rip > 0 && rip < 1) { ctx.strokeStyle = rgb(UI.serumDrop, .5 * (1 - rip)); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, y - 40, rip * 200, 0, TAU); ctx.stroke(); }
   txt('+ serum (FCS)', lx, y + r + 44, { a: seg(t, 1, 1.8), size: 24, w: 600, align: 'center', col: COL.coral });
   txt('reactive (not the A1 profile)', lx, y + r + 72, { a: seg(t, 4.6, 5.4), size: 17, align: 'center', col: COL.dim });
   if (u > 0) {
