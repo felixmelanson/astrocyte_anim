@@ -31,6 +31,9 @@ js/
     scene5.js             heatmap readout
   app.js                 canvas setup, STEPS list, render loop, playback/scrub state
   controls.js            wires the on-screen control bar to app.js
+tools/                 offline renderers (Playwright + ffmpeg); the viewer itself needs none of this
+  contact.mjs          contact sheet: busiest beat + final frame per step → out/contact/
+  render.mjs           one H.264 clip per step + held last frame → out/video/
 ```
 
 ## Editing
@@ -42,10 +45,26 @@ calls inside that scene's function — `t` is seconds since the step started.
 On-screen copy (caption, optional sub-caption, end caption) lives on each `STEPS` entry in
 `js/app.js` and mirrors `SCRIPT.md`. Keep on-screen text free of em dashes and double hyphens.
 
+Each `STEPS` entry also has `dur` (seconds until the step has settled, + 0.5 s; one video clip)
+and `busy` (a crowded moment, used by the contact sheet). If you retime a step, update `dur`.
+
+## Rendering clips for slides
+
+```
+cd tools && npm install && npx playwright install chromium   # once
+node render.mjs                        # all steps, light theme, 30 fps
+node render.mjs --steps 3,7-9 --theme dark --fps 60 --jobs 3
+node contact.mjs                       # out/contact/sheet.png for layout review
+```
+
+Frames are rendered deterministically through `window.__seek(k, t, gt, prevStep, prevT)` with
+`gt = gtBase(k) + t`, so consecutive clips join seamlessly and re-renders are identical. Step 3 is
+rendered as if arriving from step 2, so the tissue hand-off plays. Requires `ffmpeg` on PATH.
+
 ## Controls
 
 Keyboard: `→`/space/PgDn next, `←`/PgUp back, `P` play/pause, `R` replay step,
-`L` light/dark, `H` hide step dots, `F` fullscreen. The on-screen bar exposes the same
+`L` light/dark (light is the default; the scene-1 tissue always stays dark), `H` hide step dots, `F` fullscreen. The on-screen bar exposes the same
 via mouse/touch, plus a scrub bar for stepping through a single beat frame-by-frame.
 
 ## Viewing
