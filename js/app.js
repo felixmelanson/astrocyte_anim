@@ -36,7 +36,7 @@ const STEPS = [
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2b)' },
   { sc: 3, k: 0, slug: 'serum-free', dur: 9.5, busy: 6.8, cap: 'Serum-free: a true resting baseline', sub: 'serum components alone push astrocytes toward reactivity',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2c)' },
-  { sc: 5, k: 0, slug: 'readout-primer', dur: 3.8, busy: 1.8, cap: 'One row of genes per condition', sub: 'pan-reactive · A1-specific · A2-specific',
+  { sc: 5, k: 0, slug: 'readout-primer', dur: 5.0, busy: 3.0, cap: 'One row of genes per condition', sub: 'pan-reactive · A1-specific · A2-specific',
     cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a); gene sets from Zamanian et al., 2012, J Neurosci 32:6391' },
   { sc: 4, k: 0, slug: 'relay-intro', dur: 3.1, busy: 1.2, cap: 'Move the medium, one hop at a time.',
     cite: 'Adapted from Liddelow et al., 2017' },
