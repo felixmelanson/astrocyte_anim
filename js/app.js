@@ -22,24 +22,39 @@ addEventListener('resize', resize); resize();
 /* =====================================================================
    STEPS — one entry per presenter "click".
    sc = scene (drives fades / dot separators), k = index inside that scene's function.
-   Copy (cap / capEnd / sub) comes from SCRIPT.md.
+   Copy (cap / capEnd / sub) and the footer citation (cite) come from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1, k: 0, slug: 'tissue', cap: 'In tissue, every cell talks to every other cell.' },
-  { sc: 1, k: 1, slug: 'who-caused-it', cap: 'An astrocyte changes. Who caused it?' },
-  { sc: 2, k: 0, slug: 'immunopanning', cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates' },
-  { sc: 2, k: 1, slug: 'three-cultures', cap: 'Three pure cultures', sub: '>99% pure by cell-type qPCR' },
-  { sc: 3, k: 0, slug: 'serum-free', cap: 'Serum-free: a true resting baseline', sub: 'serum components alone push astrocytes toward reactivity' },
-  { sc: 5, k: 0, slug: 'readout-primer', cap: 'One row of genes per condition', sub: 'pan-reactive · A1-specific · A2-specific' },
-  { sc: 4, k: 0, slug: 'relay-intro', cap: 'Move the medium, one hop at a time.' },
-  { sc: 4, k: 1, slug: 'lps-direct', cap: 'Control: LPS straight onto astrocytes', capEnd: 'No TLR4. No response.' },
-  { sc: 4, k: 2, slug: 'microglia-medium', cap: 'Activated-microglia medium → A1', sub: 'resting-microglia medium: no change' },
-  { sc: 4, k: 3, slug: 'cocktail', cap: 'Sufficient? IL-1α + TNF + C1q alone', sub: '3 · 30 · 400 ng/ml · 24 h' },
-  { sc: 4, k: 4, slug: 'neutralize', cap: 'Necessary? Neutralize all three.' },
-  { sc: 4, k: 5, slug: 'acm-to-rgcs', cap: 'A1 astrocyte medium → purified RGCs' },
-  { sc: 4, k: 6, slug: 'dose', cap: 'Dose-dependent RGC death within 24 h' },
-  { sc: 4, k: 7, slug: 'rgc-controls', cap: 'Controls: microglia medium or cytokines alone', capEnd: 'The killer comes from the astrocytes.' },
-  { sc: 5, k: 1, slug: 'heatmap', cap: 'Every condition, one row' },
+  { sc: 1, k: 0, slug: 'tissue', cap: 'In tissue, every cell talks to every other cell.',
+    cite: 'Concept adapted from Liddelow et al., 2017, Nature 541:481' },
+  { sc: 1, k: 1, slug: 'who-caused-it', cap: 'An astrocyte changes. Who caused it?',
+    cite: 'Concept adapted from Liddelow et al., 2017; Zamanian et al., 2012' },
+  { sc: 2, k: 0, slug: 'immunopanning', cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates',
+    cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2a)' },
+  { sc: 2, k: 1, slug: 'three-cultures', cap: 'Three pure cultures', sub: '>99% pure by cell-type qPCR',
+    cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2b)' },
+  { sc: 3, k: 0, slug: 'serum-free', cap: 'Serum-free: a true resting baseline', sub: 'serum components alone push astrocytes toward reactivity',
+    cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2c)' },
+  { sc: 5, k: 0, slug: 'readout-primer', cap: 'One row of genes per condition', sub: 'pan-reactive · A1-specific · A2-specific',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a); gene sets from Zamanian et al., 2012, J Neurosci 32:6391' },
+  { sc: 4, k: 0, slug: 'relay-intro', cap: 'Move the medium, one hop at a time.',
+    cite: 'Adapted from Liddelow et al., 2017' },
+  { sc: 4, k: 1, slug: 'lps-direct', cap: 'Control: LPS straight onto astrocytes', capEnd: 'No TLR4. No response.',
+    cite: 'Adapted from Liddelow et al., 2017 (Extended Data Fig. 2c)' },
+  { sc: 4, k: 2, slug: 'microglia-medium', cap: 'Activated-microglia medium → A1', sub: 'resting-microglia medium: no change',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a; Extended Data Fig. 3b, c)' },
+  { sc: 4, k: 3, slug: 'cocktail', cap: 'Sufficient? IL-1α + TNF + C1q alone', sub: '3 · 30 · 400 ng/ml · 24 h',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a–c; Extended Data Fig. 3d)' },
+  { sc: 4, k: 4, slug: 'neutralize', cap: 'Necessary? Neutralize all three.',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a; Extended Data Fig. 3e)' },
+  { sc: 4, k: 5, slug: 'acm-to-rgcs', cap: 'A1 astrocyte medium → purified RGCs',
+    cite: 'Adapted from Liddelow et al., 2017 (Methods; Fig. 4a)' },
+  { sc: 4, k: 6, slug: 'dose', cap: 'Dose-dependent RGC death within 24 h',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 4a, c; Extended Data Fig. 7a, b)' },
+  { sc: 4, k: 7, slug: 'rgc-controls', cap: 'Controls: microglia medium or cytokines alone', capEnd: 'The killer comes from the astrocytes.',
+    cite: 'Adapted from Liddelow et al., 2017 (Extended Data Fig. 7d)' },
+  { sc: 5, k: 1, slug: 'heatmap', cap: 'Every condition, one row',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a)' },
 ];
 const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => scene3(...a), (...a) => scene4(...a), (...a) => scene5(...a)];
 
@@ -115,7 +130,7 @@ function render(k, t, gt) {
       if (i > 0 && STEPS[i].sc !== STEPS[i - 1].sc) { ctx.fillStyle = 'rgba(236,242,246,.1)'; ctx.fillRect(x - 7.5, 1040, 1, 12); }
     }
   }
-  txt('Adapted from Liddelow et al., 2017, Nature 541:481 (Methods; Figs 1a, 4c; Extended Data Figs 2, 5, 7, 9)', 64, 1052, { size: 15, col: [112, 126, 138] });
+  txt(S.cite || '', 64, 1052, { size: 15, col: [112, 126, 138] });   // per-step citation
 }
 
 /* ---------------- playback: play / pause / scrub ----------------
