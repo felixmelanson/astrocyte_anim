@@ -44,6 +44,9 @@ const POS = {
   vialL: { x: 660, y: 262 }, vialR: { x: 1260, y: 262 }, well: { x: 660, y: 262 }, filt: { x: 1260, y: 300 },
 };
 const MN = { x: DX.M, y: DY };
+// in vivo AQP4 inset (Ext. Data Fig. 5a) during the microglia-medium step; off since the declutter pass
+// (an in vivo marker squeezed between two in vitro dishes). Set true to bring it back.
+const SHOW_AQP4_INSET = false;
 // k = scene-4 step: 0 intro · 1 LPS direct · 2 LPS→microglia→astrocytes (+ resting control) · 3 cocktail
 //                    4 nAbs · 5 concentrate ACM → RGCs · 6 dose wells · 7 both RGC controls
 function scene4(k, t, gt, S) {
@@ -92,7 +95,7 @@ function scene4(k, t, gt, S) {
       // beat A: LPS activates microglia, which start secreting
       const sp = .8;
       st.tubes.push({ p: POS.vialL, label: 'LPS', a: 1 - seg(t, 4.6, 5.2), dots: DOTS.lps, liq: LIQ.lps });
-      const tdA = H(POS.vialL, POS.M, .5, sp, LIQ.lps, DOTS.lps, true, 60);
+      const tdA = H(POS.vialL, POS.M, .5, sp, LIQ.lps, DOTS.lps, true, 60, { arcA: 1 - seg(t, 6.0, 6.6) });
       st.m.act = ease(seg(t, tdA + .4, tdA + 2.6));
       st.m.fields = [{ f: F.lpsM, o: { t0: tdA, origin: tipO, stag: .6, a: 1 - seg(t, tdA + 2, tdA + 3) } },
                      { f: F.mcm, o: { t0: tdA + 1.2, stag: 2.6, spread: 2, origin: fromMicro } }];
@@ -125,7 +128,7 @@ function scene4(k, t, gt, S) {
       st.a.layers = reset({ r: 0, fields: [{ f: F.restA, o: {} }] }, { r: 0, fields: [] });
       st.m.absent = seg(t, 0, .8); st.m.mode = 'rest'; st.m.act = 0; st.m.fields = [{ f: F.restM, o: { a: 1 - seg(t, 0, .6) } }];
       st.mSub = 'none'; st.mName = 'No microglia';
-      st.tubes.push({ p: POS.vialL, label: 'IL-1α + TNF + C1q', label2: '3 · 30 · 400 ng/ml', a: seg(t, .3, .8), dots: DOTS.cyto, liq: LIQ.cyto });
+      st.tubes.push({ p: POS.vialL, label: 'IL-1α + TNF + C1q', a: seg(t, .3, .8), dots: DOTS.cyto, liq: LIQ.cyto });
       const td = H(POS.vialL, POS.A, 1.0, 1, LIQ.cyto, DOTS.cyto, true, 60);
       const r = ease(seg(t, td + .8, td + 6.3));
       st.a.layers[1].r = r; st.a.layers[1].fields = [{ f: F.cyto, o: { t0: td, origin: tipO, stag: .6 } }];
@@ -141,7 +144,7 @@ function scene4(k, t, gt, S) {
       st.m.returnA = seg(t, 0, .8); st.m.fields = [{ f: F.mcm, o: { a: seg(t, .2, .9) } }];
       const sp = .85, td1 = H(POS.M, POS.well, .9, sp, LIQ.mcm, DOTS.mcm, true, 60);
       const t2 = td1 + 3.4, td2 = H(POS.well, POS.A, t2, sp, LIQ.mcm, DOTS.nab, false, 70);
-      st.well = { a: seg(t, .3, .9) * (1 - seg(t, td2 + 4, td2 + 5)), td: td1, tb: td1 + 1.0 };
+      st.well = { a: seg(t, .3, .9), td: td1, tb: td1 + 1.0 };
       st.a.layers[1].fields = [{ f: F.nabA, o: { t0: td2, origin: tipO, stag: .6 } }];
       st.clock = { d: 'A', p: seg(t, td2 + .8, td2 + 4.8), a: seg(t, td2 + .5, td2 + .9) };
       st.legendAb = seg(t, td1 + 1, td1 + 1.8);
@@ -188,7 +191,7 @@ function scene4(k, t, gt, S) {
       st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1; st.qmark = 1;
       st.wells = { a: 1 - seg(t, 0, .5), t: 99 };
       const sp = .8, t0C = 6.0;
-      const tdM = H(POS.M, POS.N, .9, sp, LIQ.mcm, DOTS.mcm, false, 120);
+      const tdM = H(POS.M, POS.N, .9, sp, LIQ.mcm, DOTS.mcm, false, 120, { arcA: 1 - seg(t, t0C, t0C + .6) });
       st.tubes.push({ p: POS.vialR, label: 'IL-1α + TNF + C1q', a: seg(t, t0C - .6, t0C - .1), dots: DOTS.cyto, liq: LIQ.cyto });
       const tdC = H(POS.vialR, POS.N, t0C, sp, LIQ.cyto, DOTS.cyto, false, 60);
       const dishA = seg(t, .45, 1), sw = t0C + .2;
@@ -281,7 +284,7 @@ function renderRelay(s, t, gt, st) {   // s = scene-4 step k
     if (st.casp) { txt('caspase-2/3 → apoptosis', DX.N, DY + DR + 94, { a: st.casp * (1 - wa), size: 16, align: 'center', col: UI.caspText }); }
   }
   // --- AQP4 inset (in vivo, Ext. Data Fig. 5a)
-  if (st.inset && st.inset.a > 0) drawAQP4(1260, 440, 94, st.inset.r, st.inset.a, gt);
+  if (SHOW_AQP4_INSET && st.inset && st.inset.a > 0) drawAQP4(1260, 440, 94, st.inset.r, st.inset.a, gt);
   // --- tubes, well, filter
   for (const tb of st.tubes) drawTube(tb.p.x, tb.p.y, { a: tb.a, label: tb.label, label2: tb.label2, dots: tb.dots, liq: tb.liq });
   if (st.well && st.well.a > 0) drawNabWell(POS.well.x, POS.well.y, 74, t, gt, st.well);
@@ -290,15 +293,16 @@ function renderRelay(s, t, gt, st) {   // s = scene-4 step k
   if (st.clock) { const d = DX[st.clock.d]; drawClock(d + DR * .8, DY - DR * .92, st.clock.p, st.clock.a); }
   // --- ledger
   drawLedger(s, t, gt, st);
-  // --- pipettes (top)
+  // --- pipettes (top). The shaft ghosts out across the whole top band (caption, sub-caption,
+  // legend) so text stays legible; full strength again below y = B1.
   for (const h of st.hops) {
     const p = hopPose(t - h.t0, h.src, h.dst, h.sp); if (!p) continue;
-    // keep captions legible: the shaft ghosts out where it crosses the caption band
-    const B0 = 70, B1 = 170, F = 14;
-    ctx.save(); ctx.beginPath(); ctx.rect(0, -400, W, B0 + 400); ctx.rect(0, B1, W, H + 400 - B1); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, 1, p.low); ctx.restore();
-    for (let i = 0; i < F; i++) {        // soft edges into and out of the band
-      const y0 = B0 + (B1 - B0) * i / F, y1 = B0 + (B1 - B0) * (i + 1) / F, m = Math.abs((i + .5) / F - .5) * 2;
-      ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, y1 - y0 + .5); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, .12 + .88 * Math.pow(m, 3), p.low); ctx.restore();
+    const B0 = 168, B1 = 200, F = 8, G = .12;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, B1, W, H); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, 1, p.low); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0, -400, W, B0 + 400); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, G, p.low); ctx.restore();
+    for (let i = 0; i < F; i++) {        // soft edge out of the band
+      const y0 = B0 + (B1 - B0) * i / F, y1 = B0 + (B1 - B0) * (i + 1) / F, m = (i + .5) / F;
+      ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, y1 - y0 + .5); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, G + (1 - G) * m * m, p.low); ctx.restore();
     }
   }
   vignette();
@@ -458,6 +462,6 @@ function drawFilter(x, y, F_, gt) {
   ctx.restore();
   txt('30 kDa', x - w - 10, y + mem + 5, { a, size: 14, align: 'right', col: COL.legend });
   if (F_.spin > 0) { ctx.save(); ctx.globalAlpha *= a * F_.spin; ctx.translate(x + w + 26, y - 10); ctx.rotate(gt * 6); ctx.strokeStyle = fg(.8); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 4.6); ctx.stroke(); ctx.fillStyle = fg(.8); ctx.beginPath(); ctx.moveTo(11 * Math.cos(4.6) + 4, 11 * Math.sin(4.6) + 4); ctx.lineTo(11 * Math.cos(4.6) - 5, 11 * Math.sin(4.6) + 1); ctx.lineTo(11 * Math.cos(4.6) + 1, 11 * Math.sin(4.6) - 6); ctx.fill(); ctx.restore(); }
-  txt('30–50×', x + w + 12, y + 20, { a: a * F_.lab, size: 22, w: 600, col: COL.coral });
-  txt('concentrated', x + w + 12, y + 40, { a: a * F_.lab, size: 13, col: COL.dim });
+  txt('30–50×', x, y + bot + 30, { a: a * F_.lab, size: 22, w: 600, align: 'center', col: COL.coral });
+  txt('concentrated', x, y + bot + 50, { a: a * F_.lab, size: 13, align: 'center', col: COL.dim });
 }
