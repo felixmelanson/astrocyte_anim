@@ -2,7 +2,7 @@
 /* =====================================================================
    Liddelow et al., 2017, Nature 541:481 — Methods animation
    Presenter controls:  SPACE / → / PgDn = next   ← / PgUp = back
-                        R = replay step   H = hide step dots   F = fullscreen
+                        R = replay step   F = fullscreen
                         L = toggle light/dark   P = play/pause   URL hash #12 jumps to step 12
    ===================================================================== */
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
@@ -26,11 +26,9 @@ addEventListener('resize', resize); resize();
    Copy (cap / capEnd / sub) and the footer citation (cite) come from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1, k: 0, slug: 'tissue', dur: 4.2, busy: 3.0, cap: 'In tissue, every cell talks to every other cell.',
-    cite: 'Concept adapted from Liddelow et al., 2017, Nature 541:481' },
-  { sc: 1, k: 1, slug: 'who-caused-it', dur: 5.5, busy: 2.5, cap: 'An astrocyte changes. Who caused it?',
-    cite: 'Concept adapted from Liddelow et al., 2017; Zamanian et al., 2012' },
-  { sc: 2, k: 0, slug: 'immunopanning', dur: 25.7, busy: 13.4, cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates',
+  { sc: 1, k: 0, slug: 'tissue', dur: 4.2, busy: 3.0, cap: 'In tissue, every cell talks to every other cell.' },
+  { sc: 1, k: 1, slug: 'who-caused-it', dur: 5.5, busy: 2.5, cap: 'An astrocyte changes. Who caused it?' },
+  { sc: 2, k: 0, slug: 'immunopanning', dur: 28.0, busy: 7.8, cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2a)' },
   { sc: 2, k: 1, slug: 'three-cultures', dur: 5.5, busy: 2.0, cap: 'Three pure cultures', sub: '>99% pure by cell-type qPCR',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2b)' },
@@ -63,9 +61,15 @@ const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => 
    FRAME / HUD
    ===================================================================== */
 let VIG = null, EDG = null;
+// scene 1: deepens (dark) or whitens (light) the caption / footer bands over the busy tissue
 function edgeShade() {
-  if (THEME.light) return;                   // dark-only: deepens the caption / footer bands
-  if (!EDG) { const E = PALETTES.dark.col.bg.map(v => Math.round(v * .57)).join(','); const g = ctx.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, `rgba(${E},.86)`); g.addColorStop(.55, `rgba(${E},.5)`); g.addColorStop(1, `rgba(${E},0)`); const g2 = ctx.createLinearGradient(0, 950, 0, 1080); g2.addColorStop(0, `rgba(${E},0)`); g2.addColorStop(.6, `rgba(${E},.75)`); g2.addColorStop(1, `rgba(${E},.92)`); EDG = [g, g2]; }
+  const L = THEME.light;
+  if (!EDG || EDG.light !== L) {
+    const E = L ? '255,255,255' : '0,0,0', k = 1;
+    const g = ctx.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, `rgba(${E},${.86 * k})`); g.addColorStop(.55, `rgba(${E},${.5 * k})`); g.addColorStop(1, `rgba(${E},0)`);
+    const g2 = ctx.createLinearGradient(0, 950, 0, 1080); g2.addColorStop(0, `rgba(${E},0)`); g2.addColorStop(.6, `rgba(${E},${.75 * k})`); g2.addColorStop(1, `rgba(${E},${.92 * k})`);
+    EDG = [g, g2]; EDG.light = L;
+  }
   ctx.fillStyle = EDG[0]; ctx.fillRect(0, 0, W, 210); ctx.fillStyle = EDG[1]; ctx.fillRect(0, 950, W, 130);
 }
 function vignette() {
@@ -73,7 +77,7 @@ function vignette() {
   if (!VIG) { VIG = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * 1.02); VIG.addColorStop(0, 'rgba(0,0,0,0)'); VIG.addColorStop(1, 'rgba(0,0,0,.55)'); }
   ctx.fillStyle = VIG; ctx.fillRect(0, 0, W, H);
 }
-let step = 0, prevStep = -1, prevT = 0, stepStart = performance.now(), hud = !RENDER_MODE, frozen = null;
+let step = 0, prevStep = -1, prevT = 0, stepStart = performance.now(), frozen = null;
 function go(k) {
   k = clamp(k, 0, STEPS.length - 1) | 0; if (k === step) return;
   const now = performance.now(); prevT = paused ? pauseT : (now - stepStart) / 1000;
@@ -86,25 +90,15 @@ addEventListener('keydown', e => {
   if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) { e.preventDefault(); go(step + 1); }
   else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(step - 1); }
   else if (e.key === 'r' || e.key === 'R') { stepStart = performance.now(); prevStep = step; pauseT = 0; }
-  else if (e.key === 'h' || e.key === 'H') hud = !hud;
   else if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
-  else if (e.key === 'l' || e.key === 'L') { setThemeMode(THEME.lightFrom >= 0 ? 'dark' : 'light'); onThemeChange(); }
+  else if (e.key === 'l' || e.key === 'L') { setThemeMode(THEME.light ? 'dark' : 'light'); onThemeChange(); }
   else if (e.key === 'p' || e.key === 'P') { setPaused(!paused); }
 });
 let idleT; addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 1800); });
 
-// light theme: from step THEME.lightFrom onward the scenes draw with the light palette (theme.js).
-// Scene 1 stays dark; arriving via the tissue hand-off, a white flash (drawn on the canvas, so it
-// also shows up in exported video) covers the switch.
-let FLASH_A = 0;
-function applyTheme(k, t) {
-  const lf = THEME.lightFrom;
-  const viaHandoff = lf >= 0 && k === lf && lf === 2 && handoffPlays();
-  const on = lf >= 0 && (k > lf || (k === lf && (!viaHandoff || t >= TR - .28)));
-  FLASH_A = viaHandoff ? .85 * bump(t, TR - .62, TR - .3, TR - .24, TR + .35) : 0;
-  THEME.light = on;
-  const bg = on ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)'; if (document.body.style.background !== bg) document.body.style.background = bg;
-  return on;
+function applyTheme() {
+  THEME.light = THEME.mode === 'light';
+  const bg = THEME.light ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)'; if (document.body.style.background !== bg) document.body.style.background = bg;
 }
 // the previous step's caption fades out when stepping forward inside a scene
 function carryCaption(k, t) {
@@ -116,26 +110,16 @@ function carryCaption(k, t) {
 }
 function render(k, t, gt) {
   ctx.setTransform(SCL * DPR, 0, 0, SCL * DPR, 0, 0);
-  applyTheme(k, t);
+  applyTheme();
   ctx.fillStyle = rgb(COL.bg); ctx.fillRect(0, 0, W, H);
   const S = STEPS[k], sc = S.sc;
   ctx.save(); SCENES[sc](S.k, t, gt, S); ctx.restore();
   carryCaption(k, t);
   // scene fade (from the page colour) when entering a new scene
   const enteredScene = prevStep < 0 || STEPS[prevStep].sc !== sc;
-  const seamless = sc === 2 && S.k === 0 && handoffPlays() && prevStep >= 0;   // tissue hand-off replaces the fade
+  const seamless = sc === 2 && S.k === 0 && prevStep === 1;   // step 3 opens on step 2's tissue: no fade
   if (enteredScene && !seamless) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
-  // step dots (H toggles)
-  if (hud) {
-    for (let i = 0; i < STEPS.length; i++) {
-      const x = W - 64 - (STEPS.length - 1 - i) * 13, on = i === k;
-      ctx.fillStyle = fg(on ? .9 : i < k ? .35 : .13);
-      ctx.beginPath(); ctx.arc(x, 1046, on ? 3.4 : 2.4, 0, TAU); ctx.fill();
-      if (i > 0 && STEPS[i].sc !== STEPS[i - 1].sc) { ctx.fillStyle = fg(.1); ctx.fillRect(x - 7.5, 1040, 1, 12); }
-    }
-  }
   txt(S.cite || '', 64, 1052, { size: 15, col: COL.foot });   // per-step citation
-  if (FLASH_A > .002) { ctx.fillStyle = `rgba(255,255,255,${FLASH_A})`; ctx.fillRect(0, 0, W, H); }
 }
 
 /* ---------------- playback: play / pause / scrub ----------------

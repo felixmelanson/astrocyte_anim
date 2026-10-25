@@ -51,11 +51,10 @@ const PALETTES = {
   },
 };
 
-// THEME is a runtime setting toggled from the viewer UI. lightFrom: -1 = always dark,
-// N = light palette from step N onward (scene 1 tissue stays dark). light = the palette
-// the frame being drawn uses; app.js sets it per frame.
-const THEME = { lightFrom: 2, light: false };
-function setThemeMode(mode) { THEME.lightFrom = mode === 'light' ? 2 : -1; }
+// THEME is a runtime setting toggled from the viewer UI (mode 'light' | 'dark'). light = the
+// palette the frame being drawn uses; app.js sets it per frame.
+const THEME = { mode: 'light', light: true };
+function setThemeMode(mode) { THEME.mode = mode === 'dark' ? 'dark' : 'light'; }
 const PAL = () => THEME.light ? PALETTES.light : PALETTES.dark;
 const themed = key => new Proxy({}, { get: (_, p) => PAL()[key][p] });
 // these read the active palette on every access, so cells/glyphs follow the theme per frame

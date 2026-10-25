@@ -64,7 +64,7 @@ rendered as if arriving from step 2, so the tissue hand-off plays. Requires `ffm
 ## Controls
 
 Keyboard: `→`/space/PgDn next, `←`/PgUp back, `P` play/pause, `R` replay step,
-`L` light/dark (light is the default; the scene-1 tissue always stays dark), `H` hide step dots, `F` fullscreen. The on-screen bar exposes the same
+`L` light/dark (light is the default), `F` fullscreen. The on-screen bar exposes the same
 via mouse/touch, plus a scrub bar for stepping through a single beat frame-by-frame.
 
 ## Viewing

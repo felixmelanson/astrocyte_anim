@@ -130,15 +130,15 @@ function drawTissueLabels(al) {
     const lx = L.x + L.dx, ly = L.y + L.dy, an = Math.atan2(L.dy, L.dx), sx = L.x + Math.cos(an) * L.r0, sy = L.y + Math.sin(an) * L.r0;
     const grow = eOut(seg(a, 0, .7));
     ctx.save(); ctx.globalAlpha *= a;
-    ctx.strokeStyle = 'rgba(236,242,246,.6)'; ctx.lineWidth = 1.3;
+    ctx.strokeStyle = fg(.6); ctx.lineWidth = 1.3;
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(lerp(sx, lx, grow), lerp(sy, ly, grow)); ctx.stroke();
-    ctx.fillStyle = 'rgba(236,242,246,.9)'; ctx.beginPath(); ctx.arc(sx, sy, 2.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = fg(.9); ctx.beginPath(); ctx.arc(sx, sy, 2.6, 0, TAU); ctx.fill();
     ctx.font = `500 19px ${FONT}`; const tw = ctx.measureText(L.name).width, right = L.dx >= 0;
     const px = right ? lx : lx - tw - 24;
-    rr(px, ly - 15, tw + 24, 30, 15); ctx.fillStyle = rgb(COL.bg, .78); ctx.fill();
-    ctx.strokeStyle = 'rgba(236,242,246,.22)'; ctx.lineWidth = 1; ctx.stroke();
+    rr(px, ly - 15, tw + 24, 30, 15); ctx.fillStyle = rgb(COL.bg, .85); ctx.fill();
+    ctx.strokeStyle = fg(.22 * UI.rimA); ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
-    txt(L.name, px + 12, ly + 6.5, { a: a * seg(a, .3, 1), size: 19, w: 500, col: [236, 242, 246] });
+    txt(L.name, px + 12, ly + 6.5, { a: a * seg(a, .3, 1), size: 19, w: 500, col: COL.text });
   });
 }
 // the "who caused it?" overlay of Title 2; tt = time into step 1, fa = extra fade
@@ -151,7 +151,7 @@ function drawWhoOverlay(tt, gt, fa) {
     const c = cs[j], a = seg(tt, .6 + n * .15, 1.4 + n * .15) * fa;
     drawSignal(c, h, { per: 1.8, ph: n * .13, bend: (n % 2 ? .25 : -.25) }, gt, a, true);
     const qx = lerp(c.x, h.x, .22), qy = lerp(c.y, h.y, .22) - 18;
-    txt('?', qx, qy, { a: a * seg(tt, 2.2 + n * .12, 2.8 + n * .12), size: 34, w: 300, align: 'center', col: [236, 242, 246] });
+    txt('?', qx, qy, { a: a * seg(tt, 2.2 + n * .12, 2.8 + n * .12), size: 34, w: THEME.light ? 400 : 300, align: 'center', col: COL.text });
   });
 }
 function scene1(k, t, gt, S) {
@@ -175,7 +175,7 @@ function drawSignal(A, B, p, gt, a, toward) {
   const cx = (x0 + x1) / 2 - dy * p.bend, cy = (y0 + y1) / 2 + dx * p.bend;
   const P = u => [(1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * cx + u * u * x1, (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * cy + u * u * y1];
   ctx.save(); ctx.globalAlpha *= a;
-  ctx.strokeStyle = toward ? 'rgba(236,242,246,.22)' : 'rgba(210,232,238,.09)'; ctx.lineWidth = toward ? 1.4 : 1;
+  ctx.strokeStyle = toward ? fg(.22 * UI.rimA) : fg(.09 * UI.rimA); ctx.lineWidth = toward ? 1.4 : 1;
   ctx.setLineDash(toward ? [] : [2, 5]);
   ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cx, cy, x1, y1); ctx.stroke(); ctx.setLineDash([]);
   const u0 = ((gt / p.per + p.ph) % 1);
@@ -183,17 +183,14 @@ function drawSignal(A, B, p, gt, a, toward) {
     let u = (u0 + q * .5) % 1; if (!toward && q === 1) u = 1 - u;       // bidirectional in tissue
     for (let k = 0; k < 5; k++) {
       const uu = u - (toward || q === 0 ? k * .012 : -k * .012); if (uu < 0 || uu > 1) continue;
-      const [x, y] = P(uu); ctx.fillStyle = `rgba(236,244,248,${(1 - k / 5) * .85 * Math.sin(u * Math.PI)})`;
+      const [x, y] = P(uu); ctx.fillStyle = fg((1 - k / 5) * .85 * Math.sin(u * Math.PI));
       ctx.beginPath(); ctx.arc(x, y, 2.6 - k * .35, 0, TAU); ctx.fill();
     }
   }
   ctx.restore();
 }
 
-/* ---- Title 2 → Title 3 hand-off: the same tissue is cut out and lifted into the cortex block ---- */
-const TR = 2.6;                                   // seconds prepended to step 2 when arriving from Scene 1
-const handoffPlays = () => prevStep < 2;
-const BLOCK_T = { cx: 960, cy: 540, w: 420 / .36, h: 270 / .36, r: 26 / .36 };   // block outline in tissue space
+/* ---- tissue snapshot: step 3 opens on this frame (plain + step-2 focused versions) ---- */
 const SNAP = { key: '', f: null, u: null };
 function tissueSnap(gtE) {
   const q = Math.min(1.5, SCL * DPR), pt = prevStep === 1 ? prevT : 0;
@@ -207,67 +204,4 @@ function tissueSnap(gtE) {
     c.setTransform(q, 0, 0, q, 0, 0); drawTissue(c, gtE, o);
   });
   SNAP.key = key; return SNAP;
-}
-function rrPerim(b, n) {                           // points around a rounded rect, clockwise from top-centre
-  const { cx, cy, w, h, r } = b, x0 = cx - w / 2, y0 = cy - h / 2, x1 = cx + w / 2, y1 = cy + h / 2, P = [];
-  const line = (ax, ay, bx, by) => { const m = Math.max(2, Math.ceil(Math.hypot(bx - ax, by - ay) / 8)); for (let i = 0; i < m; i++) P.push([lerp(ax, bx, i / m), lerp(ay, by, i / m)]); };
-  const arc = (ox, oy, a0) => { for (let i = 0; i < 14; i++) { const a = a0 + (i / 14) * Math.PI / 2; P.push([ox + Math.cos(a) * r, oy + Math.sin(a) * r]); } };
-  line(cx, y0, x1 - r, y0); arc(x1 - r, y0 + r, -Math.PI / 2); line(x1, y0 + r, x1, y1 - r); arc(x1 - r, y1 - r, 0);
-  line(x1 - r, y1, x0 + r, y1); arc(x0 + r, y1 - r, Math.PI / 2); line(x0, y1 - r, x0, y0 + r); arc(x0 + r, y0 + r, Math.PI); line(x0 + r, y0, cx, y0);
-  P.push([cx, y0]); return P;
-}
-const BLOCK_P = rrPerim(BLOCK_T);
-function tissueHandoff(t, gt) {
-  const S = tissueSnap(gt - t);
-  const z = 1.02 + .02 * Math.sin(gt * .045), dx = Math.sin(gt * .03) * 10;     // Scene-1 camera, still running
-  const relax = ease(seg(t, .05, .7));             // focus + "who?" overlay dissolve back to the plain tissue
-  const cut = ease(seg(t, .5, 1.5));               // the cut traces the block outline
-  const lift = ease(seg(t, 1.45, 1.9));            // the piece lifts off the section…
-  const e = ease(seg(t, 1.75, TR));                // …then shrinks into the cortex block
-  const snap = a => {
-    if (a <= .004) return;
-    ctx.save(); ctx.globalAlpha *= a; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(S.u, 0, 0, W, H);
-    if (relax < 1) { ctx.globalAlpha *= 1 - relax; ctx.drawImage(S.f, 0, 0, W, H); }
-    ctx.restore();
-  };
-  const cam = () => { ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2 + dx, -H / 2); };
-  // outside: stays put, dims once the cut is made, then leaves
-  const outA = lerp(1, .24, ease(seg(t, .9, 1.6))) * (1 - ease(seg(t, 1.6, 2.4)));
-  ctx.save(); cam(); snap(outA);
-  const pt = prevStep === 1 ? prevT : 0;
-  if (prevStep === 1) drawWhoOverlay(pt + t, gt, 1 - seg(t, 0, .45));
-  ctx.restore();
-  // inside: tissue → block mapping
-  const kk = lerp(z * (1 + .035 * lift), .36, e), Cx = W / 2, Cy = lerp(H / 2, 520, e), P0x = lerp(W / 2 - dx, 960, e), P0y = 540;
-  const B = BLOCK_T, bx = B.cx - B.w / 2, by = B.cy - B.h / 2;
-  const toBlock = () => { ctx.translate(Cx, Cy); ctx.scale(kk, kk); ctx.translate(-P0x, -P0y); };
-  if (cut > 0) {
-    if (lift > 0) {                                 // lift shadow
-      ctx.save(); toBlock(); rr(bx, by, B.w, B.h, B.r);
-      ctx.shadowColor = `rgba(0,0,0,${.85 * lift * (1 - e)})`; ctx.shadowBlur = 60 * lift * (1 - e * .7); ctx.shadowOffsetY = 26 * lift * (1 - e);
-      ctx.fillStyle = rgb(COL.bg); ctx.fill(); ctx.restore();
-    }
-    ctx.save(); toBlock(); rr(bx, by, B.w, B.h, B.r); ctx.clip(); snap(1);
-    ctx.restore();
-    // the full-strength piece shows only where the cut has passed (before that it is identical to the outside)
-  }
-  // cut line + outline
-  if (cut > 0) {
-    const n = BLOCK_P.length - 1, m = Math.round(cut * n / 2);
-    const lineA = cut < 1 ? .95 : lerp(.95, .35, e), lw = lerp(2.2, 1.5, e);
-    ctx.save(); toBlock(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = THEME.light ? fg(lineA) : e > 0 ? `rgba(${lerp(240, 200, e) | 0},${lerp(246, 220, e) | 0},${lerp(250, 230, e) | 0},${lineA})` : `rgba(240,246,250,${lineA})`;
-    ctx.lineWidth = lw / kk;
-    ctx.beginPath(); ctx.moveTo(BLOCK_P[0][0], BLOCK_P[0][1]); for (let i = 1; i <= m; i++) ctx.lineTo(BLOCK_P[i][0], BLOCK_P[i][1]); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(BLOCK_P[n][0], BLOCK_P[n][1]); for (let i = n - 1; i >= n - m; i--) ctx.lineTo(BLOCK_P[i][0], BLOCK_P[i][1]); ctx.stroke();
-    if (cut < 1) for (const p of [BLOCK_P[m], BLOCK_P[n - m]]) {
-      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], 3.6 / kk, 0, TAU); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(p[0], p[1], 9 / kk, 0, TAU); ctx.fill();
-    }
-    ctx.restore();
-  }
-  ctx.save(); ctx.globalAlpha *= 1 - ease(seg(t, 1.2, 2.0)); vignette(); edgeShade(); ctx.restore();
-  if (prevStep === 1) caption(STEPS[1].cap, seg(pt, 1.5, 2.5) * (1 - seg(t, 0, .4)));
-  vignette();
 }

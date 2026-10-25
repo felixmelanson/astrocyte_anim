@@ -31,7 +31,7 @@
     el.play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
   }
   function refreshThemeIcon() {
-    const light = THEME.lightFrom >= 0;
+    const light = THEME.light;
     el.theme.querySelector('.icon-sun').style.display = light ? '' : 'none';
     el.theme.querySelector('.icon-moon').style.display = light ? 'none' : '';
     el.theme.setAttribute('aria-label', light ? 'Switch to dark' : 'Switch to light');
@@ -50,7 +50,7 @@
     if (paused) { pauseGT = performance.now() / 1000; render(step, 0, pauseGT); }
   });
   el.play.addEventListener('click', () => setPaused(!paused));
-  el.theme.addEventListener('click', () => { setThemeMode(THEME.lightFrom >= 0 ? 'dark' : 'light'); refreshThemeIcon(); });
+  el.theme.addEventListener('click', () => { setThemeMode(THEME.light ? 'dark' : 'light'); THEME.light = THEME.mode === 'light'; refreshThemeIcon(); });
   el.fullscreen.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
 
   el.scrub.addEventListener('input', () => scrubTo(parseFloat(el.scrub.value)));
@@ -65,19 +65,8 @@
     el.scrub.value = Math.min(scrubMax(), t);
   }, 80);
 
-  // click a HUD step-dot on the canvas to jump straight to it; click elsewhere advances
-  cv.addEventListener('click', e => {
-    const rect = cv.getBoundingClientRect();
-    const lx = (e.clientX - rect.left) * (W / rect.width);
-    const ly = (e.clientY - rect.top) * (H / rect.height);
-    if (hud) {
-      for (let i = 0; i < STEPS.length; i++) {
-        const x = W - 64 - (STEPS.length - 1 - i) * 13;
-        if (Math.hypot(lx - x, ly - 1046) < 10) { go(i); return; }
-      }
-    }
-    go(step + 1);
-  });
+  // click on the canvas advances
+  cv.addEventListener('click', () => go(step + 1));
 
   refreshStepLabel(); refreshPlayIcon(); refreshThemeIcon();
 })();
