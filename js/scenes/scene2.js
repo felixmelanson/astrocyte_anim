@@ -72,10 +72,10 @@ function typeLegend(x, y, a, types = TYPES) {
 }
 const LEG_RD = { astro: new Round('astro', 3), micro: new Round('micro', 4), endo: new Round('endo', 5), oligo: new Round('oligo', 6), neuron: new Round('neuron', 8) };
 
-// Step k = 0 is one continuous sequence: tissue → P5 brain → dissect cortex → dice → papain →
-// triturate → single-cell suspension → negative plates → positive plate (Methods: "cortices were
-// enzymatically (using papain) then mechanically dissociated to generate a single-cell suspension").
-const DISS = 10.3;                      // dissociation beat; panning time T starts after it
+// Step k = 0: dissociation (Methods: "cortices were enzymatically (using papain) then mechanically
+// dissociated to generate a single-cell suspension") → negative plates → positive plate.
+// Three numbered stages, one idea at a time: 1 dissect cortex · 2 papain digest · 3 triturate.
+const DISS = 9.5;                       // dissociation beat; panning time T starts after it
 function scene2(k, t, gt, S) {
   if (k === 0) {
     if (t < DISS) dissociate(t, gt); else panning(t - DISS, gt);
@@ -86,191 +86,147 @@ function scene2(k, t, gt, S) {
   threeCultures(t, gt, S);
 }
 
-/* ---------------- dissociation ----------------
-   Brain coordinates: origin = brain centre, dorsal view, rostral up. */
-function hemiPath(c, s, dx = 0) {       // s = -1 left, +1 right cortical hemisphere
-  c.moveTo(s * 6 + dx, -148);
-  c.bezierCurveTo(s * 60 + dx, -170, s * 150 + dx, -150, s * 168 + dx, -40);
-  c.bezierCurveTo(s * 182 + dx, 40, s * 150 + dx, 140, s * 70 + dx, 150);
-  c.bezierCurveTo(s * 40 + dx, 153, s * 12 + dx, 150, s * 6 + dx, 142);
+/* ---------------- dissociation ---------------- */
+const BRAIN = { x: 600, y: 560, s: 1.25 };               // lateral view, rostral left; local units ×s
+function cerebrumPath(c) {
+  c.moveTo(-160, 20);
+  c.bezierCurveTo(-170, -70, -60, -130, 40, -120);
+  c.bezierCurveTo(110, -112, 140, -60, 130, 0);
+  c.bezierCurveTo(125, 40, 80, 60, 20, 62);
+  c.bezierCurveTo(-60, 64, -140, 58, -160, 20);
   c.closePath();
 }
-const TB = { x: -293, y: -170, w: 586, h: 330 };        // where the tissue texture sits in brain coordinates
-const CUTS = { v: [-123, -64, 64, 123], h: [-89, -8, 72] };
-// chunks after dicing: hemisphere × grid cell, kept only where the cell centre lies inside the hemisphere
-const CHUNKS = (() => {
-  const xs = [-190, -123, -64, -6, 6, 64, 123, 190], ys = [-175, -89, -8, 72, 158], out = [];
-  const pc = document.createElement('canvas').getContext('2d');
-  for (const s of [-1, 1]) {
-    pc.beginPath(); hemiPath(pc, s);
-    for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < ys.length - 1; j++) {
-      const x0 = xs[i], x1 = xs[i + 1], y0 = ys[j], y1 = ys[j + 1], cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      if (x1 - x0 < 20 || !pc.isPointInPath(cx, cy)) continue;
-      out.push({ s, x0, y0, x1, y1, cx, cy });
-    }
-  }
-  const R = rng(31); out.forEach((c, i) => { c.st = R(); c.slot = i; });
-  return out;
-})();
-const TUBE = { x: 960, y: 740, s: 3 };                   // big 1.5 ml tube; (x, y) = liquid level
-function tubeBody(c) {                  // in tube-local units (drawTube's shape)
-  c.moveTo(-17, -46); c.lineTo(17, -46); c.lineTo(15, 8); c.quadraticCurveTo(10, 46, 0, 50); c.quadraticCurveTo(-10, 46, -15, 8); c.closePath();
+function cortexPath(c) {                 // the cortical shell over the cerebrum
+  c.moveTo(-160, 20);
+  c.bezierCurveTo(-170, -70, -60, -130, 40, -120);
+  c.bezierCurveTo(110, -112, 140, -60, 130, 0);
+  c.lineTo(94, 4);
+  c.bezierCurveTo(100, -40, 80, -78, 35, -80);
+  c.bezierCurveTo(-40, -86, -116, -48, -120, 24);
+  c.closePath();
 }
+function brainBack(c, fill, line) {       // olfactory bulb, cerebellum, brainstem, cerebrum (no cortex)
+  c.fillStyle = fill; c.strokeStyle = line;
+  c.beginPath(); c.moveTo(66, 48); c.bezierCurveTo(120, 58, 160, 70, 198, 92); c.bezierCurveTo(204, 104, 194, 112, 180, 108); c.bezierCurveTo(130, 94, 88, 86, 48, 70); c.closePath(); c.fill(); c.stroke();   // brainstem
+  c.beginPath(); c.ellipse(158, 12, 54, 50, 0, 0, TAU); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(-190, 18, 34, 24, -.25, 0, TAU); c.fill(); c.stroke();
+  c.beginPath(); cerebrumPath(c); c.fill(); c.stroke();
+}
+const CORTEX_C = [-10, -70];             // rough centre of the cortex shape (local)
+const SPECKS = (() => { const R = rng(73), out = [], pc = document.createElement('canvas').getContext('2d'); pc.beginPath(); cortexPath(pc); while (out.length < 40) { const x = -170 + R() * 310, y = -130 + R() * 155; if (pc.isPointInPath(x, y)) out.push([x, y, .8 + R() * .9]); } return out; })();
+const TUBE = { x: 1270, y: 560, s: 3.8 };                // big 1.5 ml tube; (x, y) = liquid level
+function tubeBody(c) { c.moveTo(-17, -46); c.lineTo(17, -46); c.lineTo(15, 8); c.quadraticCurveTo(10, 46, 0, 50); c.quadraticCurveTo(-10, 46, -15, 8); c.closePath(); }
 const tubePt = (lx, ly) => [TUBE.x + lx * TUBE.s, TUBE.y + ly * TUBE.s];
-// home of suspension cell i inside the liquid, tube-local
-const TUBE_HOME = SUS.map((c, i) => { const R = rng(500 + i), y = -8 + R() * 46, half = 13 * (y < 8 ? 1 : 1 - (y - 8) / 46); return [(R() * 2 - 1) * half, y]; });
-const STAGES = ['dissect cortex', 'dice', 'papain · 34 °C', 'triturate', 'single cells'];
+const PIECES = [[-7, 4], [5, 2], [-1, 11], [8, 13], [-9, 18], [2, 22], [-3, 30]].map(([x, y], i) => { const R = rng(90 + i); return { x, y, r: 3.4 + R() * 1.2, ph: R() * TAU, st: R(), h: [0, 1, 2].map(() => ({ k: 2 + (R() * 3 | 0), a: .08 + R() * .08, p: R() * TAU })) }; });
+const TUBE_HOME = SUS.map((c, i) => { const R = rng(500 + i), y = -6 + R() * 44, half = 12.5 * (y < 8 ? 1 : 1 - (y - 8) / 46); return [(R() * 2 - 1) * half, y]; });
+const breakT = j => 6.2 + j * .2;
+
+function stageLabel(x, y, num, title, sub, a) {
+  if (a <= .004) return;
+  ctx.font = `600 24px ${FONT}`; const tw = ctx.measureText(title).width, w = 40 + tw, x0 = x - w / 2;
+  ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = rgb(COL.teal); ctx.beginPath(); ctx.arc(x0 + 14, y - 8, 14, 0, TAU); ctx.fill(); ctx.restore();
+  txt(num, x0 + 14, y - 2, { a, size: 17, w: 700, align: 'center', col: COL.bg });
+  txt(title, x0 + 40, y, { a, size: 24, w: 600 });
+  if (sub) txt(sub, x, y + 30, { a, size: 18, align: 'center', col: COL.dim });
+}
+function drawPiece(p, x, y, r, a, soft) {
+  const pal = TP.astro;
+  const fn = th => { let f = 1; for (const q of p.h) f += q.a * (1 - soft) * Math.sin(q.k * th + q.p); return f; };
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); ctx.rotate(p.ph);
+  ctx.beginPath(); addSoma(ctx, r, fn, 1, 1.6); ctx.fillStyle = rgb(pal.rim); ctx.fill();
+  ctx.beginPath(); addSoma(ctx, r, fn, 1, 0); ctx.fillStyle = rgb(mix(pal.body, pal.rim, .12)); ctx.fill();
+  ctx.fillStyle = rgb(pal.rim, .45); for (let i = 0; i < 4; i++) { const an = i * 1.7, rr2 = r * .45; ctx.beginPath(); ctx.arc(Math.cos(an) * rr2, Math.sin(an) * rr2, r * .13, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
 
 function dissociate(t, gt) {
-  const gtE = gt - t, S = tissueSnap(gtE), pt = prevStep === 1 ? prevT : 0;
-  // --- camera: step 2's view (scene-1 camera) → whole P5 brain
-  const z0 = 1.02 + .02 * Math.sin(gtE * .045), dx0 = Math.sin(gtE * .03) * 10;
-  const R0 = { x: W / 2 - z0 * (W / 2 - dx0), y: H / 2 - z0 * H / 2, w: z0 * W };
-  const lift = ease(seg(t, 2.2, 3.0)), sep = 26 * lift;
-  const A1 = { x: 960, y: lerp(470, 380, lift) };
-  const e = ease(seg(t, .5, 2.0));
-  const w = R0.w * Math.pow(TB.w / R0.w, e), K = w / TB.w, f = (R0.w - w) / (R0.w - TB.w);
-  const cx = lerp(R0.x + R0.w / 2, A1.x + TB.x + TB.w / 2, f), cy = lerp(R0.y + z0 * H / 2, A1.y + TB.y + TB.h / 2, f);
-  const toBrain = c => { c.translate(cx - K * (TB.x + TB.w / 2), cy - K * (TB.y + TB.h / 2)); c.scale(K, K); };
-  const tex = c => c.drawImage(S.u, TB.x, TB.y, TB.w, TB.h);
-  const outA = seg(t, .8, 1.4);                         // brain outline / tint
-  const tint = THEME.light ? [222, 228, 232] : [44, 54, 62];
-  const brainA = 1 - seg(t, 4.5, 5.0);                  // whole cortex pieces (before they become falling chunks)
-  // --- step 2 → 3: the "who?" overlay and focus fade, then the view pulls back
-  const ua = 1 - seg(t, .8, 1.4);
-  if (ua > 0) {
-    ctx.save(); toBrain(ctx); ctx.globalAlpha *= ua; tex(ctx);
-    const relax = ease(seg(t, .05, .7)); if (relax < 1) { ctx.globalAlpha *= 1 - relax; ctx.drawImage(S.f, TB.x, TB.y, TB.w, TB.h); }
-    ctx.restore();
-  }
-  if (prevStep === 1 && t < .5) {
-    ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z0, z0); ctx.translate(-W / 2 + dx0, -H / 2);
-    drawWhoOverlay(pt + t, gt, 1 - seg(t, 0, .45)); ctx.restore();
-    caption(STEPS[1].cap, seg(pt, 1.5, 2.5) * (1 - seg(t, 0, .4)));
-  }
-  // --- rest of the brain (olfactory bulbs, cerebellum): appears with the pull-back, then is set aside
-  const pa = outA * (1 - seg(t, 2.0, 2.6));
-  if (pa > 0) {
-    ctx.save(); toBrain(ctx); ctx.globalAlpha *= pa; ctx.lineWidth = 2 / K; ctx.strokeStyle = fg(.55);
-    ctx.fillStyle = rgb(tint);
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * 32, -176, 26, 30, s * .2, 0, TAU); ctx.fill(); ctx.stroke(); }
-    ctx.beginPath(); ctx.ellipse(0, 196, 116, 50, 0, 0, TAU); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = fg(.25); for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(-100 + Math.abs(i) * 8, 196 + i * 16); ctx.quadraticCurveTo(0, 190 + i * 18, 100 - Math.abs(i) * 8, 196 + i * 16); ctx.stroke(); }
-    ctx.restore();
-  }
-  // --- cortical hemispheres (textured with the very tissue we were looking at)
-  const explode = ease(seg(t, 4.2, 4.6)) * 7;
+  const pal = TP.astro, rest = THEME.light ? [234, 236, 239] : [34, 40, 48];
+  const B = BRAIN, sB = B.s;
+  // ---- 1 · brain, cortex lifts off
+  const brainA = seg(t, .3, 1.0) * (1 - seg(t, 7.4, 8.0));
+  const liftU = ease(seg(t, 1.4, 2.2));
+  const fly = ease(seg(t, 2.6, 3.5));                    // cortex → tube mouth
   if (brainA > 0) {
-    for (const s of [-1, 1]) {
-      ctx.save(); toBrain(ctx); ctx.globalAlpha *= brainA * (1 - ua);   // takes over as the unclipped view fades
-      if (explode > 0) {               // diced: each chunk = hemisphere ∩ grid cell, pushed apart
-        for (const ch of CHUNKS) if (ch.s === s) {
-          const d = Math.hypot(ch.cx, ch.cy) || 1;
-          ctx.save(); ctx.translate(s * sep + ch.cx / d * explode, ch.cy / d * explode);
-          ctx.beginPath(); hemiPath(ctx, s); ctx.clip(); ctx.beginPath(); ctx.rect(ch.x0, ch.y0, ch.x1 - ch.x0, ch.y1 - ch.y0); ctx.clip();
-          tex(ctx); ctx.fillStyle = rgb(tint, .35 * outA); ctx.fillRect(TB.x, TB.y, TB.w, TB.h); ctx.restore();
-        }
-      } else {
-        ctx.beginPath(); hemiPath(ctx, s, s * sep); ctx.clip();
-        ctx.translate(s * sep, 0); tex(ctx); ctx.fillStyle = rgb(tint, .35 * outA); ctx.fillRect(TB.x, TB.y, TB.w, TB.h);
-      }
-      ctx.restore();
-      if (explode <= 0) { ctx.save(); toBrain(ctx); ctx.globalAlpha *= brainA * outA; ctx.beginPath(); hemiPath(ctx, s, s * sep); ctx.strokeStyle = fg(.55); ctx.lineWidth = 2 / K; ctx.stroke(); ctx.restore(); }
-    }
-    // dicing cuts
-    ctx.save(); toBrain(ctx); ctx.globalAlpha *= brainA * (1 - seg(t, 4.2, 4.5)); ctx.strokeStyle = fg(.75); ctx.lineWidth = 1.6 / K; ctx.lineCap = 'round';
-    const cuts = [...CUTS.v.map(x => ['v', x]), ...CUTS.h.map(y => ['h', y])];
-    cuts.forEach(([d, v], i) => {
-      const u = seg(t, 3.1 + i * .12, 3.45 + i * .12); if (u <= 0) return;
-      ctx.beginPath();
-      if (d === 'v') { const x = v + Math.sign(v) * sep; ctx.moveTo(x, -178); ctx.lineTo(x, lerp(-178, 160, u)); }
-      else { ctx.moveTo(-200 - sep, v); ctx.lineTo(lerp(-200 - sep, 200 + sep, u), v); }
-      ctx.stroke();
-    });
+    ctx.save(); ctx.globalAlpha *= brainA; ctx.translate(B.x, B.y); ctx.scale(sB, sB);
+    ctx.lineWidth = 1.6 / sB; brainBack(ctx, rgb(rest), fg(.4));
+    ctx.strokeStyle = fg(.22); for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(120, -22 + i * 18); ctx.quadraticCurveTo(160, -30 + i * 20, 206, -10 + i * 16); ctx.stroke(); }   // cerebellar folia
+    if (liftU > 0) { ctx.save(); ctx.globalAlpha *= liftU; ctx.setLineDash([5 / sB, 5 / sB]); ctx.beginPath(); cortexPath(ctx); ctx.strokeStyle = fg(.35); ctx.stroke(); ctx.restore(); }
     ctx.restore();
   }
-  txt('P5 rodent cortex', A1.x, A1.y + 192, { a: seg(t, 2.4, 3.0) * (1 - seg(t, 4.2, 4.7)), size: 22, w: 500, align: 'center' });
-  // --- tube
-  const tubeA = seg(t, 4.2, 4.7) * (1 - seg(t, 9.1, 9.7));
-  const papain = seg(t, 5.6, 6.3), soft = ease(seg(t, 6.1, 7.0));
+  // the cortex itself (in the brain → lifted → flying into the tube)
+  if (t < 3.5 && brainA > 0) {
+    const [mx, my] = tubePt(0, -50);
+    const lx = B.x + CORTEX_C[0] * sB, ly = B.y + (CORTEX_C[1] - 46 * liftU) * sB;
+    const x = lerp(lx, mx, fly), y = lerp(ly, my, fly) - Math.sin(fly * Math.PI) * 120, sc = sB * lerp(1, .22, fly);
+    ctx.save(); ctx.globalAlpha *= seg(t, .3, 1.0) * (1 - seg(fly, .85, 1)); ctx.translate(x, y); ctx.rotate(-.06 * liftU + .5 * fly); ctx.scale(sc, sc); ctx.translate(-CORTEX_C[0], -CORTEX_C[1]);
+    ctx.beginPath(); cortexPath(ctx); ctx.fillStyle = rgb(mix(pal.body, pal.rim, .1)); ctx.fill();
+    ctx.fillStyle = rgb(pal.rim, .5); for (const [px, py, r] of SPECKS) { ctx.beginPath(); ctx.arc(px, py, r * 1.6, 0, TAU); ctx.fill(); }
+    ctx.beginPath(); cortexPath(ctx); ctx.strokeStyle = rgb(pal.rim); ctx.lineWidth = 2.2 / sc; ctx.stroke();
+    ctx.restore();
+  }
+  stageLabel(B.x, 820, '1', 'Dissect cortex', 'P5 rat or mouse', seg(t, .8, 1.4) * (1 - seg(t, 7.4, 8.0)));
+  // arrow brain → tube
+  const arA = seg(t, 2.2, 2.6) * (1 - seg(t, 7.4, 8.0));
+  if (arA > 0) {
+    ctx.save(); ctx.globalAlpha *= arA; ctx.strokeStyle = fg(.3); ctx.fillStyle = fg(.3); ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(880, 560); ctx.lineTo(1120, 560); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(1132, 560); ctx.lineTo(1118, 552); ctx.lineTo(1118, 568); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  // ---- 2 · tube: papain digest
+  const tubeA = seg(t, 2.0, 2.6) * (1 - seg(t, 8.4, 9.0));
+  const papain = seg(t, 3.9, 4.6), soft = ease(seg(t, 4.4, 5.8));
   if (tubeA > 0) {
     ctx.save(); ctx.globalAlpha *= tubeA; ctx.translate(TUBE.x, TUBE.y); ctx.scale(TUBE.s, TUBE.s);
-    ctx.beginPath(); tubeBody(ctx); ctx.fillStyle = rgb(UI.rim, UI.glassA * .9); ctx.fill();
+    ctx.beginPath(); tubeBody(ctx); ctx.fillStyle = rgb(UI.rim, UI.glassA); ctx.fill();
     ctx.save(); ctx.beginPath(); tubeBody(ctx); ctx.clip();
-    ctx.fillStyle = rgb(liqC(mix([60, 80, 96], [96, 90, 60], papain)), .55); ctx.fillRect(-20, -12, 40, 70); ctx.restore();
-    ctx.lineWidth = 1.3 / TUBE.s; ctx.beginPath(); tubeBody(ctx); ctx.strokeStyle = rgb(UI.rim, Math.min(1, .55 * UI.rimA)); ctx.stroke();
-    ctx.fillStyle = rgb(UI.rim, .25 * UI.rimA); rr(-20, -52, 40, 7, 2); ctx.fill();
-    ctx.strokeStyle = rgb(UI.rim, Math.min(1, .45 * UI.rimA)); ctx.beginPath(); ctx.ellipse(-34, -56, 15, 5, -.35, 0, TAU); ctx.stroke();
+    ctx.fillStyle = rgb(mix(liqC([70, 86, 100]), UI.serumDrop, .35 * papain), .45); ctx.fillRect(-20, -12, 40, 70);
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-20, -12, 40, .5);
     ctx.restore();
-    // papain drops + 34 °C / 90 min
-    for (let i = 0; i < 4; i++) {
-      const u = seg(t, 5.6 + i * .14, 6.0 + i * .14); if (u <= 0 || u >= 1) continue;
-      const x = TUBE.x + (i - 1.5) * 9, y = lerp(TUBE.y - 300, TUBE.y - 30, u * u);
-      ctx.fillStyle = rgb(UI.drop, .85); ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.quadraticCurveTo(x + 5, y, x, y + 4); ctx.quadraticCurveTo(x - 5, y, x, y - 9); ctx.fill();
+    ctx.lineWidth = 1.4 / TUBE.s; ctx.beginPath(); tubeBody(ctx); ctx.strokeStyle = rgb(UI.rim, Math.min(1, .6 * UI.rimA)); ctx.stroke();
+    ctx.fillStyle = rgb(UI.rim, .3 * UI.rimA); rr(-20, -52, 40, 7, 2); ctx.fill();
+    ctx.restore();
+    // papain drops
+    for (let i = 0; i < 3; i++) {
+      const u = seg(t, 3.9 + i * .16, 4.3 + i * .16); if (u <= 0 || u >= 1) continue;
+      const x = TUBE.x + (i - 1) * 12, y = lerp(TUBE.y - 330, TUBE.y - 20, u * u);
+      ctx.fillStyle = rgb(UI.serumDrop, .9); ctx.beginPath(); ctx.moveTo(x, y - 11); ctx.quadraticCurveTo(x + 6, y, x, y + 5); ctx.quadraticCurveTo(x - 6, y, x, y - 11); ctx.fill();
     }
-    const la = seg(t, 5.7, 6.2) * (1 - seg(t, 7.2, 7.6)) * tubeA;
-    txt('papain', TUBE.x + 80, TUBE.y - 40, { a: la, size: 22, w: 600, col: COL.text });
-    txt('34 °C · 90 min', TUBE.x + 80, TUBE.y - 14, { a: la, size: 17, col: COL.dim });
-    const clk = seg(t, 6.1, 7.0);
-    if (la > 0) { ctx.save(); ctx.globalAlpha *= la; ctx.lineWidth = 3; ctx.strokeStyle = fg(.13); ctx.beginPath(); ctx.arc(TUBE.x + 94, TUBE.y + 24, 12, 0, TAU); ctx.stroke(); ctx.strokeStyle = fg(.85); ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(TUBE.x + 94, TUBE.y + 24, 12, -Math.PI / 2, -Math.PI / 2 + TAU * clk); ctx.stroke(); ctx.restore(); }
   }
-  // --- chunks fall into the tube, soften in papain, break apart under trituration
-  const n = CHUNKS.length, brk = j => 7.5 + (j / n) * .9;
-  if (t > 4.5) {
-    CHUNKS.forEach((ch, j) => {
-      const tf = 4.6 + ch.st * .9, u = ease(seg(t, tf, tf + .8)), ba = 1 - seg(t, brk(j), brk(j) + .3);
-      if (ba <= 0) return;
-      const d = Math.hypot(ch.cx, ch.cy) || 1;
-      const sx = cx + K * (ch.cx + ch.s * sep + ch.cx / d * 7), sy = cy - K * (TB.y + TB.h / 2) + K * (ch.cy + ch.cy / d * 7);
-      const jig = Math.sin(gt * 2 + j) * 1.2 * soft;
-      const [hx, hy] = tubePt(((j % 4) - 1.5) * 6.5 + jig, 2 + Math.floor(j / 4) * 7 + Math.cos(gt * 1.7 + j) * soft);
-      const x = lerp(sx, hx, u), y = lerp(sy, hy, u) - Math.sin(u * Math.PI) * 50, sc = lerp(K, .3, u) * (1 - .25 * soft) * lerp(1, .5, 1 - ba);
-      ctx.save(); ctx.globalAlpha *= ba; ctx.translate(x, y); ctx.scale(sc, sc);
-      const cw = ch.x1 - ch.x0, chh = ch.y1 - ch.y0;
-      ctx.beginPath(); rr(-cw / 2, -chh / 2, cw, chh, lerp(3, Math.min(cw, chh) / 2, soft)); ctx.save(); ctx.clip();
-      ctx.beginPath(); ctx.translate(-ch.cx, -ch.cy); hemiPath(ctx, ch.s); if (soft < .6) ctx.clip();
-      tex(ctx); ctx.fillStyle = rgb(tint, .45 + .3 * u); ctx.fillRect(TB.x, TB.y, TB.w, TB.h); ctx.restore();
-      if (u > 0) { ctx.beginPath(); rr(-cw / 2, -chh / 2, cw, chh, lerp(3, Math.min(cw, chh) / 2, soft)); ctx.strokeStyle = fg(.45 * u); ctx.lineWidth = 1.4 / sc; ctx.stroke(); }
-      ctx.restore();
-    });
-  }
-  // --- trituration pipette
-  const pIn = seg(t, 7.0, 7.4), pOut = seg(t, 8.4, 8.8);
+  // pieces: the cortex splits as it enters, falls into the liquid, softens, then breaks up
+  if (t > 3.3) PIECES.forEach((p, j) => {
+    const u = ease(seg(t, 3.3 + p.st * .3, 4.0 + p.st * .3)), ba = 1 - seg(t, breakT(j), breakT(j) + .35);
+    if (ba <= 0) return;
+    const [mx, my] = tubePt(0, -46), wob = soft * 1.2;
+    const [hx, hy] = tubePt(p.x + Math.sin(gt * 1.3 + p.ph) * wob, p.y + Math.cos(gt * 1.1 + p.ph) * wob);
+    const x = lerp(mx, hx, u), y = lerp(my, hy, u);
+    drawPiece(p, x, y, p.r * TUBE.s * (1 - .28 * soft) * lerp(.6, 1, ba), tubeA * ba, soft);
+  });
+  // ---- 3 · trituration pipette
+  const pIn = seg(t, 5.8, 6.2), pOut = seg(t, 7.4, 7.8);
   if (pIn > 0 && pOut < 1) {
-    const u = seg(t, 7.4, 8.4), stroke = .5 - .5 * Math.cos(u * TAU * 3);
-    const tipY = lerp(TUBE.y - 260, TUBE.y + 70, eOut(pIn)) - stroke * 60 - eOut(pOut) * 420;
-    drawPipette(TUBE.x + 6, tipY, .3 + .5 * stroke * (u > 0 && u < 1 ? 1 : 0), liqC([60, 80, 96]), null, 1 - pOut, 0);
+    const u = seg(t, 6.2, 7.4), stroke = .5 - .5 * Math.cos(u * TAU * 3);
+    const tipY = lerp(TUBE.y - 330, TUBE.y + 110, eOut(pIn)) - stroke * 90 - eOut(pOut) * 520;
+    drawPipette(TUBE.x + 4, tipY, u > 0 && u < 1 ? .2 + .6 * stroke : .2, liqC([70, 86, 100]), null, 1 - pOut, 0);
   }
-  // --- single cells: appear as the chunks break, mill about in the tube, then pour into suspension
+  const lab2 = seg(t, 2.8, 3.4) * (1 - seg(t, 5.8, 6.2)), lab3 = seg(t, 6.0, 6.5) * (1 - seg(t, 8.0, 8.6));
+  stageLabel(TUBE.x, 820, '2', 'Papain digest', '34 °C · enzyme loosens the tissue', lab2);
+  stageLabel(TUBE.x, 820, '3', 'Triturate', 'pipetting frees single cells', lab3);
+  // ---- single cells: freed by trituration, then poured into the suspension
   SUS.forEach((c, i) => {
-    const j = i % n, a0 = seg(t, brk(j) + .1, brk(j) + .5); if (a0 <= 0) return;
-    const ch = CHUNKS[j], home = TUBE_HOME[i];
-    const [bx, by] = tubePt(((j % 4) - 1.5) * 6.5, 2 + Math.floor(j / 4) * 7), [hx, hy] = tubePt(home[0] + Math.sin(gt * .9 + c.ph) * 1.2, home[1] + Math.cos(gt * .7 + c.ph) * 1.2);
-    const m = ease(seg(t, brk(j) + .1, brk(j) + .8));
-    let x = lerp(bx, hx, m), y = lerp(by, hy, m), s = .5;
-    const st = hash(i * 1.37), u = ease(seg(t, 8.9 + st * .5, 9.7 + st * .5));
-    if (u > 0) {                       // pour: tube mouth → place in the suspension cloud
-      const mx = TUBE.x, my = TUBE.y - 200;
-      x = (1 - u) * (1 - u) * x + 2 * (1 - u) * u * mx + u * u * c.cx; y = (1 - u) * (1 - u) * y + 2 * (1 - u) * u * my + u * u * c.cy; s = lerp(.5, 1.4, u);
+    const j = i % PIECES.length, a0 = seg(t, breakT(j) + .05, breakT(j) + .45); if (a0 <= 0) return;
+    const p = PIECES[j], home = TUBE_HOME[i];
+    const [bx, by] = tubePt(p.x, p.y), [hx, hy] = tubePt(home[0] + Math.sin(gt * .9 + c.ph) * 1, home[1] + Math.cos(gt * .7 + c.ph) * 1);
+    const m = ease(seg(t, breakT(j) + .05, breakT(j) + .9));
+    let x = lerp(bx, hx, m), y = lerp(by, hy, m), s = .9;
+    const st = hash(i * 1.37), u = ease(seg(t, 7.9 + st * .6, 8.8 + st * .6));
+    if (u > 0) {
+      const mx = TUBE.x, my = TUBE.y - 280;
+      x = (1 - u) * (1 - u) * x + 2 * (1 - u) * u * mx + u * u * c.cx; y = (1 - u) * (1 - u) * y + 2 * (1 - u) * u * my + u * u * c.cy; s = lerp(.9, 1.4, u);
     }
-    if (u > .99) { x += Math.sin(gt * 1.2 + c.ph) * 3 * u; y += Math.cos(gt + c.ph) * 3 * u; }
+    if (u >= 1) { x += Math.sin(gt * 1.2 + c.ph) * 3; y += Math.cos(gt + c.ph) * 3; }
     c.rd.draw(ctx, x, y, gt, { a: a0, s });
   });
-  // --- process strip
-  const stripA = seg(t, 1.8, 2.4) * (1 - seg(t, 9.4, 10.0));
-  if (stripA > 0) {
-    const starts = [2.0, 3.1, 5.6, 7.0, 8.9];
-    ctx.font = `500 18px ${FONT}`;
-    const ws = STAGES.map(s => ctx.measureText(s).width), gap = 54, tot = ws.reduce((a, b) => a + b, 0) + gap * (STAGES.length - 1);
-    let x = W / 2 - tot / 2;
-    STAGES.forEach((s, i) => {
-      const on = seg(t, starts[i], starts[i] + .4), cur = on * (1 - (i < 4 ? seg(t, starts[i + 1], starts[i + 1] + .4) : 0));
-      txt(s, x, 958, { a: stripA * (.28 + .72 * on), size: 18, w: cur > .5 ? 600 : 500, col: cur > .5 ? COL.text : COL.dim });
-      if (i < STAGES.length - 1) txt('→', x + ws[i] + gap / 2, 958, { a: stripA * .4, size: 18, align: 'center', col: COL.dim });
-      x += ws[i] + gap;
-    });
-  }
-  typeLegend(960, 880, seg(t, 9.6, 10.3));
+  typeLegend(960, 880, seg(t, 8.9, 9.5));
 }
 // T = seconds since the suspension started moving to the first plate
 function panning(T, gt) {

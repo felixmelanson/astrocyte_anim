@@ -150,8 +150,6 @@ function drawWhoOverlay(tt, gt, fa) {
   TIS.nb.forEach((j, n) => {
     const c = cs[j], a = seg(tt, .6 + n * .15, 1.4 + n * .15) * fa;
     drawSignal(c, h, { per: 1.8, ph: n * .13, bend: (n % 2 ? .25 : -.25) }, gt, a, true);
-    const qx = lerp(c.x, h.x, .22), qy = lerp(c.y, h.y, .22) - 18;
-    txt('?', qx, qy, { a: a * seg(tt, 2.2 + n * .12, 2.8 + n * .12), size: 34, w: THEME.light ? 400 : 300, align: 'center', col: COL.text });
   });
 }
 function scene1(k, t, gt, S) {
@@ -190,18 +188,3 @@ function drawSignal(A, B, p, gt, a, toward) {
   ctx.restore();
 }
 
-/* ---- tissue snapshot: step 3 opens on this frame (plain + step-2 focused versions) ---- */
-const SNAP = { key: '', f: null, u: null };
-function tissueSnap(gtE) {
-  const q = Math.min(1.5, SCL * DPR), pt = prevStep === 1 ? prevT : 0;
-  const key = gtE.toFixed(3) + '|' + q + '|' + pt.toFixed(3) + '|' + THEME.light;
-  if (SNAP.key === key) return SNAP;
-  const cw = Math.round(W * q), ch = Math.round(H * q);
-  for (const k of ['f', 'u']) if (!SNAP[k] || SNAP[k].width !== cw) { SNAP[k] = document.createElement('canvas'); SNAP[k].width = cw; SNAP[k].height = ch; }
-  const heroR = .36 * ease(seg(pt, 1.2, 5.5)), focus = ease(seg(pt, .2, 1.4));
-  [[SNAP.f, { heroR, focus }], [SNAP.u, {}]].forEach(([cv2, o]) => {
-    const c = cv2.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = rgb(COL.bg); c.fillRect(0, 0, cw, ch);
-    c.setTransform(q, 0, 0, q, 0, 0); drawTissue(c, gtE, o);
-  });
-  SNAP.key = key; return SNAP;
-}

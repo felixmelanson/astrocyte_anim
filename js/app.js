@@ -26,9 +26,9 @@ addEventListener('resize', resize); resize();
    Copy (cap / capEnd / sub) and the footer citation (cite) come from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1, k: 0, slug: 'tissue', dur: 4.2, busy: 3.0, cap: 'In tissue, every cell talks to every other cell.' },
-  { sc: 1, k: 1, slug: 'who-caused-it', dur: 5.5, busy: 2.5, cap: 'An astrocyte changes. Who caused it?' },
-  { sc: 2, k: 0, slug: 'immunopanning', dur: 28.0, busy: 7.8, cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates',
+  { sc: 1, k: 0, slug: 'tissue', dur: 4.2, busy: 3.0 },   // no on-screen title: narration carries steps 1-2
+  { sc: 1, k: 1, slug: 'who-caused-it', dur: 5.5, busy: 2.5 },
+  { sc: 2, k: 0, slug: 'immunopanning', dur: 27.2, busy: 6.8, cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2a)' },
   { sc: 2, k: 1, slug: 'three-cultures', dur: 5.5, busy: 2.0, cap: 'Three pure cultures', sub: '>99% pure by cell-type qPCR',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2b)' },
@@ -117,8 +117,7 @@ function render(k, t, gt) {
   carryCaption(k, t);
   // scene fade (from the page colour) when entering a new scene
   const enteredScene = prevStep < 0 || STEPS[prevStep].sc !== sc;
-  const seamless = sc === 2 && S.k === 0 && prevStep === 1;   // step 3 opens on step 2's tissue: no fade
-  if (enteredScene && !seamless) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
+  if (enteredScene) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
   txt(S.cite || '', 64, 1052, { size: 15, col: COL.foot });   // per-step citation
 }
 
