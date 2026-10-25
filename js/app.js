@@ -23,37 +23,38 @@ addEventListener('resize', resize); resize();
    STEPS — one entry per presenter "click".
    sc = scene (drives fades / dot separators), k = index inside that scene's function.
    dur = seconds until the step has settled + 0.5 s (one video clip); busy = a crowded moment, for review.
+   joins = opens on the previous step's last frame (no scene fade, previous heading fades out).
    Copy (cap / capEnd / sub) and the footer citation (cite) come from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1, k: 0, slug: 'tissue', dur: 4.2, busy: 3.0 },   // no on-screen title: narration carries steps 1-2
+  { sc: 1, k: 0, slug: 'tissue', dur: 2.5, busy: 3.0 },   // no on-screen title: narration carries steps 1-2
   { sc: 1, k: 1, slug: 'who-caused-it', dur: 5.5, busy: 2.5 },
-  { sc: 2, k: 0, slug: 'immunopanning', dur: 27.2, busy: 6.8, cap: 'Purify each cell type by immunopanning', sub: 'P5 cortex · papain · sequential antibody plates',
+  { sc: 2, k: 0, slug: 'immunopanning', joins: true, dur: 23.1, busy: 2.6, cap: 'Cell-type purification by immunopanning', sub: 'P5 cortex · papain dissociation · sequential panning plates',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2a)' },
-  { sc: 2, k: 1, slug: 'three-cultures', dur: 5.5, busy: 2.0, cap: 'Three pure cultures', sub: '>99% pure by cell-type qPCR',
+  { sc: 2, k: 1, slug: 'three-cultures', dur: 5.5, busy: 2.0, cap: 'Purified primary cultures', sub: 'astrocytes and RGCs >99% pure',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2b)' },
-  { sc: 3, k: 0, slug: 'serum-free', dur: 9.5, busy: 6.8, cap: 'Serum-free: a true resting baseline', sub: 'serum components alone push astrocytes toward reactivity',
+  { sc: 3, k: 0, slug: 'serum-free', dur: 9.5, busy: 6.8, cap: 'Serum-free culture preserves a resting baseline', sub: 'serum components alone induce astrocyte reactivity',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2c)' },
-  { sc: 5, k: 0, slug: 'readout-primer', dur: 5.0, busy: 3.0, cap: 'One row of genes per condition', sub: 'pan-reactive · A1-specific · A2-specific',
-    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a); gene sets from Zamanian et al., 2012, J Neurosci 32:6391' },
-  { sc: 4, k: 0, slug: 'relay-intro', dur: 3.1, busy: 1.2, cap: 'Move the medium, one hop at a time.',
+  { sc: 5, k: 0, slug: 'readout-primer', dur: 4.9, busy: 3.0, cap: 'Readout: reactive-astrocyte transcript panel', sub: 'microfluidic qPCR · reference A1 and A2 profiles',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a); gene sets from Zamanian et al., 2012' },
+  { sc: 4, k: 0, slug: 'relay-intro', dur: 3.1, busy: 1.2, cap: 'Conditioned-medium transfer between purified cultures',
     cite: 'Adapted from Liddelow et al., 2017' },
-  { sc: 4, k: 1, slug: 'lps-direct', dur: 11.7, busy: 5.5, cap: 'Control: LPS straight onto astrocytes', capEnd: 'No TLR4. No response.',
+  { sc: 4, k: 1, slug: 'lps-direct', dur: 11.7, busy: 5.5, cap: 'LPS applied directly to astrocytes', capEnd: 'No response: astrocytes lack TLR4',
     cite: 'Adapted from Liddelow et al., 2017 (Extended Data Fig. 2c)' },
-  { sc: 4, k: 2, slug: 'microglia-medium', dur: 22.6, busy: 10.5, cap: 'Activated-microglia medium → A1', sub: 'resting-microglia medium: no change',
-    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a; Extended Data Fig. 3b, c)' },
-  { sc: 4, k: 3, slug: 'cocktail', dur: 13.5, busy: 6.0, cap: 'Sufficient? IL-1α + TNF + C1q alone', sub: '3 · 30 · 400 ng/ml · 24 h',
-    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a–c; Extended Data Fig. 3d)' },
-  { sc: 4, k: 4, slug: 'neutralize', dur: 18.1, busy: 9.5, cap: 'Necessary? Neutralize all three.',
+  { sc: 4, k: 2, slug: 'microglia-medium', dur: 22.4, busy: 10.5, cap: 'LPS-activated microglia induce A1 astrocytes', sub: 'medium from resting microglia has no effect',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a; Extended Data Fig. 3)' },
+  { sc: 4, k: 3, slug: 'cocktail', dur: 13.5, busy: 6.0, cap: 'IL-1α, TNF and C1q are sufficient', sub: '3, 30 and 400 ng/ml · 24 h',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a to c; Extended Data Fig. 3d)' },
+  { sc: 4, k: 4, slug: 'neutralize', dur: 17.9, busy: 9.5, cap: 'IL-1α, TNF and C1q are necessary', sub: 'neutralizing antibodies block induction by activated-microglia medium',
     cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a; Extended Data Fig. 3e)' },
-  { sc: 4, k: 5, slug: 'acm-to-rgcs', dur: 17.4, busy: 10.8, cap: 'A1 astrocyte medium → purified RGCs',
+  { sc: 4, k: 5, slug: 'acm-to-rgcs', dur: 17.4, busy: 10.8, cap: 'A1 astrocyte-conditioned medium on purified RGCs',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Fig. 4a)' },
-  { sc: 4, k: 6, slug: 'dose', dur: 6.8, busy: 3.5, cap: 'Dose-dependent RGC death within 24 h',
-    cite: 'Adapted from Liddelow et al., 2017 (Fig. 4a, c; Extended Data Fig. 7a, b)' },
-  { sc: 4, k: 7, slug: 'rgc-controls', dur: 13.8, busy: 10.0, cap: 'Controls: microglia medium or cytokines alone', capEnd: 'The killer comes from the astrocytes.',
+  { sc: 4, k: 6, slug: 'dose', dur: 6.8, busy: 3.5, cap: 'Dose-dependent RGC death at 24 h',
+    cite: 'Adapted from Liddelow et al., 2017 (Fig. 4a, c; Extended Data Fig. 7)' },
+  { sc: 4, k: 7, slug: 'rgc-controls', dur: 13.8, busy: 10.0, cap: 'Controls: activated-microglia medium or cytokines alone', capEnd: 'Neurotoxicity originates from A1 astrocytes',
     cite: 'Adapted from Liddelow et al., 2017 (Extended Data Fig. 7d)' },
-  { sc: 5, k: 1, slug: 'heatmap', dur: 5.3, busy: 2.5, cap: 'Every condition, one row',
-    cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a)' },
+  { sc: 5, k: 1, slug: 'heatmap', joins: true, dur: 4.8, busy: 1.2, cap: 'Reactive-transcript profiles across conditions',
+    cite: 'Reproduced from Liddelow et al., 2017 (Fig. 1a)' },
 ];
 const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => scene3(...a), (...a) => scene4(...a), (...a) => scene5(...a)];
 
@@ -102,7 +103,7 @@ function applyTheme() {
 }
 // the previous step's caption fades out when stepping forward inside a scene
 function carryCaption(k, t) {
-  if (prevStep !== k - 1 || prevStep < 0 || STEPS[prevStep].sc !== STEPS[k].sc) return;
+  if (prevStep !== k - 1 || prevStep < 0 || (STEPS[prevStep].sc !== STEPS[k].sc && !STEPS[k].joins)) return;
   const P = STEPS[prevStep], S = STEPS[k], a = 1 - seg(t, 0, .45); if (a <= 0) return;
   const pc = P.capEnd || P.cap;
   if (pc && pc !== S.cap) caption(pc, a);
@@ -117,7 +118,8 @@ function render(k, t, gt) {
   carryCaption(k, t);
   // scene fade (from the page colour) when entering a new scene
   const enteredScene = prevStep < 0 || STEPS[prevStep].sc !== sc;
-  if (enteredScene) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
+  // joins: the step continues the previous step's last frame, so no fade
+  if (enteredScene && !(S.joins && prevStep === k - 1)) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
   txt(S.cite || '', 64, 1052, { size: 15, col: COL.foot });   // per-step citation
 }
 

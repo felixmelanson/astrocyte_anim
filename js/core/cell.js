@@ -70,8 +70,8 @@ class Cell {
     const body = ex => {
       c.beginPath(); addSoma(c, R0, fn, el, ex);
       for (const s of strands) { if (frag > 0 && s.b.kind !== 'p' || frag > 0 && ty === 'neuron') addFrag(c, s, ex, frag); else addStrand(c, s, ex); }
-      if (this.sheaths) for (const sh of this.sheaths) {
-        const hx = Math.cos(sh.A) * sh.len / 2, hy = Math.sin(sh.A) * sh.len / 2;
+      if (this.sheaths && spr > .05) for (const sh of this.sheaths) {      // myelin sheaths retract with the processes
+        const L = sh.len * spr, hx = Math.cos(sh.A) * L / 2, hy = Math.sin(sh.A) * L / 2;
         addStrand(c, { pts: [sh.cx - hx, sh.cy - hy, sh.cx + hx, sh.cy + hy], ws: [5.6, 5.6], n: 1 }, ex);
       }
     };
@@ -131,7 +131,7 @@ class Cell {
       }
       this.nucleus(c, R0, pal, .52, .48, eth);
     } else {
-      if (this.sheaths) { c.strokeStyle = rgb(pal.fil, .35); c.lineWidth = .8; for (const sh of this.sheaths) { const hx = Math.cos(sh.A) * (sh.len / 2 - 3), hy = Math.sin(sh.A) * (sh.len / 2 - 3); c.beginPath(); c.moveTo(sh.cx - hx, sh.cy - hy); c.lineTo(sh.cx + hx, sh.cy + hy); c.stroke(); } }
+      if (this.sheaths && spr > .05) { c.strokeStyle = rgb(pal.fil, .35); c.lineWidth = .8; for (const sh of this.sheaths) { const hx = Math.cos(sh.A) * Math.max(0, sh.len * spr / 2 - 3), hy = Math.sin(sh.A) * Math.max(0, sh.len * spr / 2 - 3); c.beginPath(); c.moveTo(sh.cx - hx, sh.cy - hy); c.lineTo(sh.cx + hx, sh.cy + hy); c.stroke(); } }
       this.nucleus(c, R0, pal, .5, .45, 0);
     }
     c.restore();

@@ -63,19 +63,24 @@ const palMix = (p, q, t) => ({ rim: mix(p.rim, q.rim, t), body: mix(p.body, q.bo
 const fg = (a = 1) => rgb(PAL().col.ink, a);                       // foreground strokes/fills (near-white on dark, near-black on light)
 const shade = (a = 1) => rgb(UI.shadow, a * UI.shadowK);            // drop shadows
 const liqC = c => mix(c, [255, 255, 255], UI.liqMix);               // medium colour in tubes / tips
-const FONT = '"Inter","Helvetica Neue","Segoe UI",Helvetica,Arial,sans-serif';
+// Avenir Next (macOS) to match the slides: Medium 500 for body text, Demi Bold 600 / Bold 700 for headings.
+const FONT = '"Avenir Next","Avenir","Helvetica Neue",Helvetica,Arial,sans-serif';
 
-/* ---------------- text ---------------- */
+/* ---------------- text ----------------
+   o.halo: a soft page-coloured outline so text stays legible over cells or hardware */
 function txt(s, x, y, o = {}) {
-  const a = o.a ?? 1; if (a <= 0.004) return;
+  const a = o.a ?? 1; if (a <= 0.004 || !s) return;
   ctx.save(); ctx.globalAlpha *= a;
-  ctx.font = `${o.it ? 'italic ' : ''}${o.w || 400} ${o.size || 20}px ${FONT}`;
+  ctx.font = `${o.it ? 'italic ' : ''}${o.w || 500} ${o.size || 20}px ${FONT}`;
   ctx.fillStyle = rgb(o.col || COL.text);
   ctx.textAlign = o.align || 'left'; ctx.textBaseline = o.base || 'alphabetic';
   if ('letterSpacing' in ctx) ctx.letterSpacing = (o.ls || 0) + 'px';
-  if (o.rot) { ctx.translate(x, y); ctx.rotate(o.rot); ctx.fillText(s, 0, 0); } else ctx.fillText(s, x, y);
+  if (o.rot) { ctx.translate(x, y); ctx.rotate(o.rot); x = 0; y = 0; }
+  if (o.halo) { ctx.lineJoin = 'round'; ctx.strokeStyle = rgb(COL.bg, .85); ctx.lineWidth = o.halo; ctx.strokeText(s, x, y); }
+  ctx.fillText(s, x, y);
   ctx.restore();
 }
-// Caption copy lives on each STEPS entry (app.js), taken from SCRIPT.md.
-function caption(s, a, y = 122, size = 30) { if (!s) return; txt(s, W / 2, y, { a, size, w: 500, align: 'center', col: COL.text }); }
-function subcap(s, a, y = 156) { if (!s) return; txt(s, W / 2, y, { a, size: 19, align: 'center', col: COL.dim, ls: .5 }); }
+// Slide heading: left-aligned title + optional sub-line. Copy lives on each STEPS entry (app.js).
+const TITLE_X = 80, TITLE_Y = 92;
+function caption(s, a) { if (!s) return; txt(s, TITLE_X, TITLE_Y, { a, size: 36, w: 600, col: COL.text, halo: 8 }); }
+function subcap(s, a) { if (!s) return; txt(s, TITLE_X, TITLE_Y + 38, { a, size: 21, w: 500, col: COL.dim, halo: 6 }); }

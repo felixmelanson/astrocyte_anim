@@ -73,12 +73,17 @@ function drawVessel(c, t, a = 1) {
   c.restore();
 }
 // o.focus (0..1): the hero astrocyte and its neighbours stay sharp; everything else goes out of focus
+// o.bgA fades neuropil, axons and vessel; o.cell(i) → { a, sprout } per cell (step 3 dissolves the tissue)
 function tissueLayer(c, t, o, backOnly, backA = 1) {
-  c.drawImage(TIS.bg[THEME.light ? 'light' : 'dark'], 0, 0);
-  c.save(); c.lineCap = 'round'; c.strokeStyle = rgb(TP.neuron.rim, .42); c.lineWidth = 2.2;
-  for (const ax of TIS.axons) { const dx = Math.cos(ax.A) * ax.len / 2, dy = Math.sin(ax.A) * ax.len / 2; c.beginPath(); c.moveTo(ax.x - dx, ax.y - dy); c.lineTo(ax.x + dx, ax.y + dy); c.stroke(); }
-  c.restore();
-  drawVessel(c, t);
+  const bgA = o.bgA ?? 1;
+  if (bgA > .004) {
+    c.save(); c.globalAlpha *= bgA;
+    c.drawImage(TIS.bg[THEME.light ? 'light' : 'dark'], 0, 0);
+    c.lineCap = 'round'; c.strokeStyle = rgb(TP.neuron.rim, .42); c.lineWidth = 2.2;
+    for (const ax of TIS.axons) { const dx = Math.cos(ax.A) * ax.len / 2, dy = Math.sin(ax.A) * ax.len / 2; c.beginPath(); c.moveTo(ax.x - dx, ax.y - dy); c.lineTo(ax.x + dx, ax.y + dy); c.stroke(); }
+    c.restore();
+    drawVessel(c, t, bgA);
+  }
   for (const i of TIS.order) {
     const inFocus = i === 0 || TIS.nb.includes(i);
     if (backOnly && inFocus) continue;
@@ -86,8 +91,9 @@ function tissueLayer(c, t, o, backOnly, backA = 1) {
   }
 }
 function tissueCell(c, i, t, o, a) {
-  const isHero = i === 0;
-  TIS.cells[i].draw(c, { t, r: isHero ? (o.heroR || 0) : 0, a, colR: isHero && o.heroR ? Math.min(1, o.heroR / .36) : undefined });
+  const isHero = i === 0, q = o.cell ? o.cell(i) : null;
+  if (q) { a *= q.a; if (a <= .004) return; }
+  TIS.cells[i].draw(c, { t, r: isHero ? (o.heroR || 0) : 0, a, sprout: q ? q.sprout : 1, colR: isHero && o.heroR ? Math.min(1, o.heroR / .36) : undefined });
 }
 const DEFOC = { s: null, b: null, M: 10 };          // 1/4-size offscreen: sharp → blurred
 function drawTissue(c, t, o = {}) {
@@ -110,36 +116,47 @@ function drawTissue(c, t, o = {}) {
   for (const i of TIS.order) if (i === 0 || TIS.nb.includes(i)) tissueCell(c, i, t, o, 1);
 }
 
-/* ---- Title 1: leader-line labels on one exemplar of each cell type (set false to drop them) ---- */
-const TISSUE_LABELS = true;
-const TLAB = (() => {
-  const want = [['astro', 'Astrocyte', 560, 330, -120, -64, 15], ['micro', 'Microglia', 1350, 660, 120, -60, 9],
-                ['neuron', 'Neuron', 640, 700, -120, 40, 12], ['oligo', 'Oligodendrocyte', 1330, 300, 120, -60, 11]];
-  const L = want.map(([ty, name, px, py, dx, dy, r0]) => {
-    let best = null, bd = 1e9;
-    TIS.cells.forEach((c, i) => { if (i === 0 || c.type !== ty) return; const d = Math.hypot(c.x - px, c.y - py); if (d < bd) { bd = d; best = c; } });
-    return { x: best.x, y: best.y, dx, dy, r0, name };
-  });
-  let vp = VES[0], vd = 1e9; for (const p of VES) { const d = Math.hypot(p[0] - 1560, p[1] - 440); if (d < vd) { vd = d; vp = p; } }
-  L.push({ x: vp[0], y: vp[1], dx: 60, dy: 150, r0: VW / 2 + 6, name: 'Blood vessel' });
-  return L;
+/* ---- step 2: labels for the few cells left in focus, set outside the cluster on leader lines ---- */
+const FLAB = (() => {
+  const h = TIS.hero, names = { astro: 'Astrocyte', micro: 'Microglia', neuron: 'Neuron', oligo: 'Oligodendrocyte' };
+  const picks = [], seen = new Set();
+  for (const j of TIS.nb) { const ty = TIS.cells[j].type; if (seen.has(ty)) continue; seen.add(ty); picks.push({ i: j, name: names[ty] }); }
+  const L = [], R = [];
+  picks.forEach(p => (TIS.cells[p.i].x < h.x ? L : R).push(p));
+  (L.length <= R.length ? L : R).push({ i: 0, name: 'Astrocyte', hero: true });
+  const out = [];
+  for (const [arr, side] of [[L, -1], [R, 1]]) {
+    arr.sort((a, b) => TIS.cells[a.i].y - TIS.cells[b.i].y);
+    let prev = -1e9;
+    arr.forEach(p => { const c = TIS.cells[p.i]; p.side = side; p.lx = h.x + side * 450; p.ly = Math.max(c.y, prev + 60); prev = p.ly; out.push(p); });
+    const shift = (arr.reduce((s, p) => s + p.ly - TIS.cells[p.i].y, 0) / Math.max(1, arr.length));
+    arr.forEach(p => p.ly -= shift * .5);
+  }
+  out.forEach((p, n) => p.n = n);
+  return out;
 })();
-function drawTissueLabels(al) {
-  TLAB.forEach((L, i) => {
-    const a = al(i); if (a <= .004) return;
-    const lx = L.x + L.dx, ly = L.y + L.dy, an = Math.atan2(L.dy, L.dx), sx = L.x + Math.cos(an) * L.r0, sy = L.y + Math.sin(an) * L.r0;
+// al(n) = alpha of label n; heroCol: the central astrocyte's label turns coral as it becomes reactive
+function drawFocusLabels(al, heroCol = 0) {
+  for (const p of FLAB) {
+    const a = al(p.n); if (a <= .004) continue;
+    const c = TIS.cells[p.i], r0 = c.R0 * c.sc + 6, ex = p.lx - p.side * 14;
+    const an = Math.atan2(p.ly - c.y, ex - c.x), sx = c.x + Math.cos(an) * r0, sy = c.y + Math.sin(an) * r0;
     const grow = eOut(seg(a, 0, .7));
-    ctx.save(); ctx.globalAlpha *= a;
-    ctx.strokeStyle = fg(.6); ctx.lineWidth = 1.3;
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(lerp(sx, lx, grow), lerp(sy, ly, grow)); ctx.stroke();
-    ctx.fillStyle = fg(.9); ctx.beginPath(); ctx.arc(sx, sy, 2.6, 0, TAU); ctx.fill();
-    ctx.font = `500 19px ${FONT}`; const tw = ctx.measureText(L.name).width, right = L.dx >= 0;
-    const px = right ? lx : lx - tw - 24;
-    rr(px, ly - 15, tw + 24, 30, 15); ctx.fillStyle = rgb(COL.bg, .85); ctx.fill();
-    ctx.strokeStyle = fg(.22 * UI.rimA); ctx.lineWidth = 1; ctx.stroke();
-    ctx.restore();
-    txt(L.name, px + 12, ly + 6.5, { a: a * seg(a, .3, 1), size: 19, w: 500, col: COL.text });
-  });
+    ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = fg(.55); ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(lerp(sx, ex, grow), lerp(sy, p.ly, grow)); ctx.stroke();
+    ctx.fillStyle = fg(.85); ctx.beginPath(); ctx.arc(sx, sy, 2.8, 0, TAU); ctx.fill(); ctx.restore();
+    const col = p.hero ? mix(COL.text, COL.coral, heroCol) : COL.text;
+    txt(p.hero && heroCol > .5 ? 'Reactive astrocyte' : p.name, p.lx, p.ly + 7, { a: a * seg(a, .3, 1), size: 22, w: 600, align: p.side < 0 ? 'right' : 'left', col, halo: 7 });
+  }
+}
+// the tissue as seen through the scene-1 camera; steps 1–3 all draw through this
+const tisCam = gt => ({ z: 1.02 + .02 * Math.sin(gt * .045), dx: Math.sin(gt * .03) * 10 });
+function tissueView(gt, o, overlay) {
+  const { z, dx } = tisCam(gt);
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2 + dx, -H / 2);
+  drawTissue(ctx, gt, o);
+  if (overlay) overlay();
+  ctx.restore();
 }
 // the "who caused it?" overlay of Title 2; tt = time into step 1, fa = extra fade
 function drawWhoOverlay(tt, gt, fa) {
@@ -153,19 +170,15 @@ function drawWhoOverlay(tt, gt, fa) {
   });
 }
 function scene1(k, t, gt, S) {
-  const z = 1.02 + .02 * Math.sin(gt * .045);
-  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2 + Math.sin(gt * .03) * 10, -H / 2);
   const heroR = k === 1 ? .36 * ease(seg(t, 1.2, 5.5)) : 0;
   const focus = k === 1 ? ease(seg(t, .2, 1.4)) : 0;
-  drawTissue(ctx, gt, { heroR, focus });
-  // signalling web
-  const cs = TIS.cells;
-  if (k === 0) { const genA = seg(t, .6, 2); if (genA > 0) for (const p of TIS.pairs) drawSignal(cs[p.a], cs[p.b], p, gt, genA); }
-  else drawWhoOverlay(t, gt, 1);
-  if (TISSUE_LABELS) drawTissueLabels(i => k === 0 ? ease(seg(t, 2.2 + i * .22, 2.8 + i * .22)) : 1 - seg(t, 0, .6));
-  ctx.restore();
+  tissueView(gt, { heroR, focus }, () => {
+    const cs = TIS.cells;
+    if (k === 0) { const genA = seg(t, .6, 2); if (genA > 0) for (const p of TIS.pairs) drawSignal(cs[p.a], cs[p.b], p, gt, genA); }
+    else { drawWhoOverlay(t, gt, 1); drawFocusLabels(n => ease(seg(t, 1.5 + n * .18, 2.1 + n * .18)), seg(heroR, .2, .3)); }
+  });
   vignette(); edgeShade();
-  caption(S.cap, k === 0 ? seg(t, .8, 1.8) : seg(t, 1.5, 2.5));
+  caption(S.cap, seg(t, .8, 1.8));
 }
 function drawSignal(A, B, p, gt, a, toward) {
   if (a <= .004) return;

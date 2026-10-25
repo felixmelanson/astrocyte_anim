@@ -26,18 +26,20 @@ const F = {
 const DOTS = { mcm: ['il1', 'tnf', 'other', 'c1q', 'other', 'il1', 'tnf', 'other', 'c1q', 'other'], lps: Array(8).fill('lps'), cyto: ['il1', 'tnf', 'c1q', 'il1', 'tnf', 'c1q', 'il1', 'tnf'], rest: Array(5).fill('other'), nab: ['gray', 'ab', 'other', 'gray', 'ab', 'other', 'gray', 'ab'], acm: ['tox', 'other', 'tox', 'tox', 'other', 'tox', 'other', 'tox'], conc: Array(12).fill(0).map((_, i) => i % 3 ? 'tox' : 'other') };
 const LIQ = {   // dark-theme medium colours; liqC() lightens them for the light theme
   mcm: [58, 72, 84], lps: [70, 76, 80], cyto: [66, 72, 70], rest: [52, 64, 74], acm: [92, 64, 62], conc: [120, 70, 64] };
-// step = the scene-4 step (k) whose result produces this ledger card
+// Results panel along the bottom: two groups (astrocyte response, RGC survival).
+// step = the scene-4 step (k) whose result produces the item.
 const CARDS = [
-  { l1: 'LPS', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 1 },
-  { l1: 'LPS-microglia medium', to: 'astrocytes', res: 'A1', k: 'a', r: 1, step: 2 },
-  { l1: 'resting-microglia medium', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 2 },
-  { l1: 'IL-1α + TNF + C1q', to: 'astrocytes', res: 'A1', k: 'a', r: 1, step: 3 },
-  { l1: 'LPS-microglia med. + nAbs', to: 'astrocytes', res: 'no change', k: 'a', r: 0, step: 4 },
-  { l1: 'A1 astrocyte medium', to: 'RGCs', res: 'die', k: 'n', d: 1, step: 5 },
-  { l1: 'LPS-microglia medium', to: 'RGCs', res: 'survive', k: 'n', d: 0, step: 7 },
-  { l1: 'IL-1α + TNF + C1q', to: 'RGCs', res: 'survive', k: 'n', d: 0, step: 7 },
+  { l: ['LPS'], res: 'No change', k: 'a', r: 0, step: 1 },
+  { l: ['Activated microglia', 'medium'], res: 'A1', k: 'a', r: 1, step: 2 },
+  { l: ['Resting microglia', 'medium'], res: 'No change', k: 'a', r: 0, step: 2 },
+  { l: ['IL-1α + TNF + C1q'], res: 'A1', k: 'a', r: 1, step: 3 },
+  { l: ['Activated microglia', 'medium + nAbs'], res: 'No change', k: 'a', r: 0, step: 4 },
+  { l: ['A1 astrocyte', 'medium'], res: 'Death', k: 'n', d: 1, step: 5 },
+  { l: ['Activated microglia', 'medium'], res: 'Survival', k: 'n', d: 0, step: 7 },
+  { l: ['IL-1α + TNF + C1q'], res: 'Survival', k: 'n', d: 0, step: 7 },
 ];
-const cardX = i => 960 + (i - 3.5) * 222, CARDY = 880;
+const LEDGER = { y: 922, r: 24, groups: [['Astrocyte response', 0, 4], ['RGC survival', 5, 7]] };
+const cardX = i => 200 + 200 * i + (i >= 5 ? 120 : 0);
 
 const POS = {
   M: { x: DX.M, y: DY }, A: { x: DX.A, y: DY }, N: { x: DX.N, y: DY, lift: 120 },
@@ -210,6 +212,8 @@ function scene4(k, t, gt, S) {
   }
   renderRelay(k, t, gt, st);
 }
+// set by step 15 to reuse step 14's last frame without its results panel / heading
+const RELAY_SKIP = { ledger: false, caps: false };
 function renderRelay(s, t, gt, st) {   // s = scene-4 step k
   const intro = st.intro;
   const dA = key => intro ? seg(t, { M: .2, A: .5, N: .8 }[key], { M: 1, A: 1.3, N: 1.6 }[key]) : 1;
@@ -291,69 +295,74 @@ function renderRelay(s, t, gt, st) {   // s = scene-4 step k
   if (st.filter && st.filter.a > 0) drawFilter(POS.filt.x, POS.filt.y, st.filter, gt);
   // --- clock
   if (st.clock) { const d = DX[st.clock.d]; drawClock(d + DR * .8, DY - DR * .92, st.clock.p, st.clock.a); }
-  // --- ledger
-  drawLedger(s, t, gt, st);
-  // --- pipettes (top). The shaft ghosts out across the whole top band (caption, sub-caption,
-  // legend) so text stays legible; full strength again below y = B1.
+  // --- results panel (step 15 animates it itself)
+  if (!RELAY_SKIP.ledger) drawLedger(s, t, gt, st);
+  // --- pipettes (drawn in full; headings and legend keep a halo so they stay legible on top)
   for (const h of st.hops) {
     const p = hopPose(t - h.t0, h.src, h.dst, h.sp); if (!p) continue;
-    const B0 = 168, B1 = 200, F = 8, G = .12;
-    ctx.save(); ctx.beginPath(); ctx.rect(0, B1, W, H); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, 1, p.low); ctx.restore();
-    ctx.save(); ctx.beginPath(); ctx.rect(0, -400, W, B0 + 400); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, G, p.low); ctx.restore();
-    for (let i = 0; i < F; i++) {        // soft edge out of the band
-      const y0 = B0 + (B1 - B0) * i / F, y1 = B0 + (B1 - B0) * (i + 1) / F, m = (i + .5) / F;
-      ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, y1 - y0 + .5); ctx.clip(); drawPipette(p.x, p.y, p.fill, h.liq, h.dots, G + (1 - G) * m * m, p.low); ctx.restore();
-    }
+    drawPipette(p.x, p.y, p.fill, h.liq, h.dots, 1, p.low);
   }
   vignette();
   // --- legend + captions
   drawLegend(st);
+  if (RELAY_SKIP.caps) return;
   st.caps.forEach(c => caption(c[0], c[1]));
   if (st.sub) subcap(st.sub[0], st.sub[1]);
 }
+// key: fixed, right-aligned 3 × 2 grid level with the heading; items fade in where they will stay
+const LEGEND = [['il1', 'IL-1α'], ['tnf', 'TNF'], ['c1q', 'C1q'], ['other', 'other secreted'], ['ab', 'neutralizing Ab'], ['tox', 'unknown factor']];
 function drawLegend(st) {
   const a = st.legend; if (!a || a <= .004) return;
-  const items = [['il1', 'IL-1α', 1], ['tnf', 'TNF', 1], ['c1q', 'C1q', 1], ['other', 'other secreted', 1], ['ab', 'neutralizing Ab', st.legendAb || 0], ['tox', 'unknown factor', st.legendTox || 0]];
-  items.forEach((it, i) => {
-    const col = i % 3, row = (i / 3) | 0, x = 1250 + col * 222, y = 50 + row * 40;
-    const ia = a * it[2]; if (ia <= .004) return;
-    glyph(ctx, it[0], x, y - 7, GSIZE[it[0]] * 1.35 * (it[0] === 'other' ? 1.3 : 1), it[0] === 'ab' ? 0 : 0, ia);
-    txt(it[1], x + 24, y, { a: ia, size: 19, col: COL.legend });
+  const show = [1, 1, 1, 1, st.legendAb || 0, st.legendTox || 0];
+  ctx.font = `500 18px ${FONT}`;
+  const colW = [0, 1, 2].map(c => 34 + Math.max(ctx.measureText(LEGEND[c][1]).width, ctx.measureText(LEGEND[c + 3][1]).width));
+  const gap = 28, right = 1840, x0 = right - colW.reduce((p, q) => p + q, 0) - 2 * gap;
+  LEGEND.forEach(([g, label], i) => {
+    const col = i % 3, row = (i / 3) | 0, ia = a * show[i]; if (ia <= .004) return;
+    const x = x0 + colW.slice(0, col).reduce((p, q) => p + q, 0) + col * gap, y = 86 + row * 36;
+    glyph(ctx, g, x + 11, y - 6, GSIZE[g] * (g === 'other' ? 1.5 : 1.15), 0, ia);
+    txt(label, x + 30, y, { a: ia, size: 18, col: COL.legend, halo: 6 });
+  });
+}
+function ledgerItem(i, x, y, gt, a, sc = 1) {      // one result: mini dish, treatment, outcome
+  const cd = CARDS[i], good = cd.res === 'No change' || cd.res === 'Survival';
+  miniDish(x, y, cd, gt, a, LEDGER.r * sc);
+  cd.l.forEach((line, j) => txt(line, x, y + 46 * sc + j * 18 * sc, { a, size: 15 * sc, align: 'center', col: COL.text }));
+  txt(cd.res, x, y + (46 + 18 * cd.l.length + 8) * sc, { a, size: 16 * sc, w: 700, align: 'center', col: good ? COL.teal : COL.coral });
+}
+function drawLedgerFrame(a, groupA = [1, 1]) {
+  LEDGER.groups.forEach(([name, i0, i1], g) => {
+    const ga = a * groupA[g]; if (ga <= .004) return;
+    const x0 = cardX(i0) - 90, x1 = cardX(i1) + 90, y = LEDGER.y - 52;
+    txt(name.toUpperCase(), x0, y, { a: ga, size: 13, w: 600, ls: 1.6, col: COL.dim });
+    ctx.save(); ctx.globalAlpha *= ga; ctx.fillStyle = fg(.14 * UI.rimA); ctx.fillRect(x0, y + 9, x1 - x0, 1); ctx.restore();
   });
 }
 function drawLedger(s, t, gt, st) {
   const shown = CARDS.filter(c => c.step < s).length;     // cards are ordered by step
   const flyOf = i => st.cards.find(c => c.i === i && t > c.tf);
+  drawLedgerFrame(1);
   CARDS.forEach((cd, i) => {
-    const cx = cardX(i), f = flyOf(i);
+    const x = cardX(i), f = flyOf(i);
     const vis = i < shown ? 1 : f ? seg(t, f.tf + .7, f.tf + 1.1) : 0;
-    ctx.save(); rr(cx - 102, CARDY - 94, 204, 188, 12);
-    ctx.fillStyle = fg(.022 + .018 * vis); ctx.fill();
-    ctx.strokeStyle = fg((.05 + .05 * vis) * UI.rimA); ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
-    txt(String(i + 1).padStart(2, '0'), cx - 88, CARDY - 72, { a: .35 + .4 * vis, size: 12, w: 600, ls: 1.5, col: COL.dim });
-    if (vis <= 0) return;
-    txt(cd.l1, cx, CARDY - 48, { a: vis, size: 14.5, w: 500, align: 'center' });
-    txt('→ ' + cd.to, cx, CARDY - 29, { a: vis, size: 13.5, align: 'center', col: COL.dim });
-    miniDish(cx, CARDY + 16, cd, gt, vis);
-    const good = cd.res === 'no change' || cd.res === 'survive';
-    txt(cd.res, cx, CARDY + 80, { a: vis, size: 16, w: 600, align: 'center', col: good ? COL.teal : COL.coral });
+    if (vis < 1) { ctx.save(); ctx.globalAlpha *= 1 - vis; ctx.setLineDash([3, 4]); ctx.strokeStyle = fg(.16 * UI.rimA); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, LEDGER.y, LEDGER.r, 0, TAU); ctx.stroke(); ctx.restore(); }
+    if (vis > 0) ledgerItem(i, x, LEDGER.y, gt, vis);
   });
-  for (const fl of st.cards) {      // result dish flies down into its ledger slot
+  for (const fl of st.cards) {      // result dish flies down into its slot
     const u = ease(seg(t, fl.tf, fl.tf + .9)); if (u <= 0 || u >= 1) continue;
     const cd = CARDS[fl.i], src = cd.k === 'a' ? DX.A : DX.N;
-    const x = lerp(src, cardX(fl.i), u), y = lerp(DY, CARDY + 16, u) - Math.sin(u * Math.PI) * 40, r = lerp(DR, 36, u);
+    const x = lerp(src, cardX(fl.i), u), y = lerp(DY, LEDGER.y, u) - Math.sin(u * Math.PI) * 40, r = lerp(DR, LEDGER.r, u);
     ctx.save(); ctx.globalAlpha *= .95 * (1 - seg(u, .85, 1)); drawDish(x, y, r);
     ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / DR, r / DR);
     if (cd.k === 'a') AST.forEach(c => c.draw(ctx, { t: gt, r: cd.r })); else RGC.forEach(c => c.draw(ctx, { t: gt, d: cd.d, noPuncta: true }));
     ctx.restore(); drawDishRim(x, y, r); ctx.restore();
-    ctx.save(); ctx.globalAlpha *= .6 * (1 - u); ctx.strokeStyle = fg(.8); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.restore();
   }
 }
-function miniDish(x, y, cd, gt, a) {
-  ctx.save(); ctx.globalAlpha *= a; drawDish(x, y, 36);
-  ctx.save(); clipCircle(x, y, 33); ctx.translate(x, y);
+function miniDish(x, y, cd, gt, a, r = 36) {
+  ctx.save(); ctx.globalAlpha *= a; drawDish(x, y, r);
+  ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / 36, r / 36);
   if (cd.k === 'a') MINI_A.draw(ctx, { t: gt, r: cd.r }); else MINI_N.draw(ctx, { t: gt, d: cd.d, noPuncta: true });
-  ctx.restore(); drawDishRim(x, y, 36); ctx.restore();
+  ctx.restore(); drawDishRim(x, y, r); ctx.restore();
 }
 function drawWells(t, gt, a) {
   const offs = [[-98, -98], [98, -98], [-98, 98], [98, 98]], wr = 90;

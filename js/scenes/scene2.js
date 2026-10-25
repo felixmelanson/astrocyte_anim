@@ -72,10 +72,11 @@ function typeLegend(x, y, a, types = TYPES) {
 }
 const LEG_RD = { astro: new Round('astro', 3), micro: new Round('micro', 4), endo: new Round('endo', 5), oligo: new Round('oligo', 6), neuron: new Round('neuron', 8) };
 
-// Step k = 0: dissociation (Methods: "cortices were enzymatically (using papain) then mechanically
-// dissociated to generate a single-cell suspension") → negative plates → positive plate.
-// Three numbered stages, one idea at a time: 1 dissect cortex · 2 papain digest · 3 triturate.
-const DISS = 9.5;                       // dissociation beat; panning time T starts after it
+// Step k = 0 continues straight from step 2's tissue: papain digests the extracellular matrix,
+// processes retract, trituration frees rounded single cells, and that suspension is panned.
+// (Methods: "cortices were enzymatically (using papain) then mechanically dissociated to
+// generate a single-cell suspension".)
+const DISS = 6.4;                       // dissociation beat; panning time T starts after it
 function scene2(k, t, gt, S) {
   if (k === 0) {
     if (t < DISS) dissociate(t, gt); else panning(t - DISS, gt);
@@ -87,146 +88,66 @@ function scene2(k, t, gt, S) {
 }
 
 /* ---------------- dissociation ---------------- */
-const BRAIN = { x: 600, y: 560, s: 1.25 };               // lateral view, rostral left; local units ×s
-function cerebrumPath(c) {
-  c.moveTo(-160, 20);
-  c.bezierCurveTo(-170, -70, -60, -130, 40, -120);
-  c.bezierCurveTo(110, -112, 140, -60, 130, 0);
-  c.bezierCurveTo(125, 40, 80, 60, 20, 62);
-  c.bezierCurveTo(-60, 64, -140, 58, -160, 20);
-  c.closePath();
-}
-function cortexPath(c) {                 // the cortical shell over the cerebrum
-  c.moveTo(-160, 20);
-  c.bezierCurveTo(-170, -70, -60, -130, 40, -120);
-  c.bezierCurveTo(110, -112, 140, -60, 130, 0);
-  c.lineTo(94, 4);
-  c.bezierCurveTo(100, -40, 80, -78, 35, -80);
-  c.bezierCurveTo(-40, -86, -116, -48, -120, 24);
-  c.closePath();
-}
-function brainBack(c, fill, line) {       // olfactory bulb, cerebellum, brainstem, cerebrum (no cortex)
-  c.fillStyle = fill; c.strokeStyle = line;
-  c.beginPath(); c.moveTo(66, 48); c.bezierCurveTo(120, 58, 160, 70, 198, 92); c.bezierCurveTo(204, 104, 194, 112, 180, 108); c.bezierCurveTo(130, 94, 88, 86, 48, 70); c.closePath(); c.fill(); c.stroke();   // brainstem
-  c.beginPath(); c.ellipse(158, 12, 54, 50, 0, 0, TAU); c.fill(); c.stroke();
-  c.beginPath(); c.ellipse(-190, 18, 34, 24, -.25, 0, TAU); c.fill(); c.stroke();
-  c.beginPath(); cerebrumPath(c); c.fill(); c.stroke();
-}
-const CORTEX_C = [-10, -70];             // rough centre of the cortex shape (local)
-const SPECKS = (() => { const R = rng(73), out = [], pc = document.createElement('canvas').getContext('2d'); pc.beginPath(); cortexPath(pc); while (out.length < 40) { const x = -170 + R() * 310, y = -130 + R() * 155; if (pc.isPointInPath(x, y)) out.push([x, y, .8 + R() * .9]); } return out; })();
-const TUBE = { x: 1270, y: 560, s: 3.8 };                // big 1.5 ml tube; (x, y) = liquid level
-function tubeBody(c) { c.moveTo(-17, -46); c.lineTo(17, -46); c.lineTo(15, 8); c.quadraticCurveTo(10, 46, 0, 50); c.quadraticCurveTo(-10, 46, -15, 8); c.closePath(); }
-const tubePt = (lx, ly) => [TUBE.x + lx * TUBE.s, TUBE.y + ly * TUBE.s];
-const PIECES = [[-7, 4], [5, 2], [-1, 11], [8, 13], [-9, 18], [2, 22], [-3, 30]].map(([x, y], i) => { const R = rng(90 + i); return { x, y, r: 3.4 + R() * 1.2, ph: R() * TAU, st: R(), h: [0, 1, 2].map(() => ({ k: 2 + (R() * 3 | 0), a: .08 + R() * .08, p: R() * TAU })) }; });
-const TUBE_HOME = SUS.map((c, i) => { const R = rng(500 + i), y = -6 + R() * 44, half = 12.5 * (y < 8 ? 1 : 1 - (y - 8) / 46); return [(R() * 2 - 1) * half, y]; });
-const breakT = j => 6.2 + j * .2;
-
-function stageLabel(x, y, num, title, sub, a) {
-  if (a <= .004) return;
-  ctx.font = `600 24px ${FONT}`; const tw = ctx.measureText(title).width, w = 40 + tw, x0 = x - w / 2;
-  ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = rgb(COL.teal); ctx.beginPath(); ctx.arc(x0 + 14, y - 8, 14, 0, TAU); ctx.fill(); ctx.restore();
-  txt(num, x0 + 14, y - 2, { a, size: 17, w: 700, align: 'center', col: COL.bg });
-  txt(title, x0 + 40, y, { a, size: 24, w: 600 });
-  if (sub) txt(sub, x, y + 30, { a, size: 18, align: 'center', col: COL.dim });
-}
-function drawPiece(p, x, y, r, a, soft) {
-  const pal = TP.astro;
-  const fn = th => { let f = 1; for (const q of p.h) f += q.a * (1 - soft) * Math.sin(q.k * th + q.p); return f; };
-  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); ctx.rotate(p.ph);
-  ctx.beginPath(); addSoma(ctx, r, fn, 1, 1.6); ctx.fillStyle = rgb(pal.rim); ctx.fill();
-  ctx.beginPath(); addSoma(ctx, r, fn, 1, 0); ctx.fillStyle = rgb(mix(pal.body, pal.rim, .12)); ctx.fill();
-  ctx.fillStyle = rgb(pal.rim, .45); for (let i = 0; i < 4; i++) { const an = i * 1.7, rr2 = r * .45; ctx.beginPath(); ctx.arc(Math.cos(an) * rr2, Math.sin(an) * rr2, r * .13, 0, TAU); ctx.fill(); }
-  ctx.restore();
-}
+// each suspension cell starts as a real cell of the same type in the tissue (endothelial cells
+// from the vessel wall), nearest the centre first
+const SUS_SRC = (() => {
+  const onScreen = c => c.x > 60 && c.x < W - 60 && c.y > 60 && c.y < H - 60;
+  const pools = {};
+  TIS.cells.forEach((c, i) => { if (!onScreen(c)) return; (pools[c.type] ||= []).push(i); });
+  for (const ty in pools) pools[ty].sort((a, b) => Math.hypot(TIS.cells[a].x - 960, TIS.cells[a].y - 520) - Math.hypot(TIS.cells[b].x - 960, TIS.cells[b].y - 520));
+  const ves = VES.filter(p => p[0] > 120 && p[0] < W - 120 && p[1] > 80 && p[1] < H - 80), used = {}, R = rng(17);
+  let e = 0;
+  return SUS.map(c => {
+    const st = R();
+    if (c.type === 'endo') { const p = ves[Math.floor((e++ + .5) / 8 * ves.length)]; return { x: p[0], y: p[1], cell: -1, st }; }
+    const pool = pools[c.type] || [], n = used[c.type] = (used[c.type] || 0) + 1, i = pool[(n - 1) % pool.length];
+    return { x: TIS.cells[i].x, y: TIS.cells[i].y, cell: i, st };
+  });
+})();
+const SRC_OF = new Map(SUS_SRC.filter(s => s.cell >= 0).map(s => [s.cell, s]));
 
 function dissociate(t, gt) {
-  const pal = TP.astro, rest = THEME.light ? [234, 236, 239] : [34, 40, 48];
-  const B = BRAIN, sB = B.s;
-  // ---- 1 · brain, cortex lifts off
-  const brainA = seg(t, .3, 1.0) * (1 - seg(t, 7.4, 8.0));
-  const liftU = ease(seg(t, 1.4, 2.2));
-  const fly = ease(seg(t, 2.6, 3.5));                    // cortex → tube mouth
-  if (brainA > 0) {
-    ctx.save(); ctx.globalAlpha *= brainA; ctx.translate(B.x, B.y); ctx.scale(sB, sB);
-    ctx.lineWidth = 1.6 / sB; brainBack(ctx, rgb(rest), fg(.4));
-    ctx.strokeStyle = fg(.22); for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(120, -22 + i * 18); ctx.quadraticCurveTo(160, -30 + i * 20, 206, -10 + i * 16); ctx.stroke(); }   // cerebellar folia
-    if (liftU > 0) { ctx.save(); ctx.globalAlpha *= liftU; ctx.setLineDash([5 / sB, 5 / sB]); ctx.beginPath(); cortexPath(ctx); ctx.strokeStyle = fg(.35); ctx.stroke(); ctx.restore(); }
-    ctx.restore();
-  }
-  // the cortex itself (in the brain → lifted → flying into the tube)
-  if (t < 3.5 && brainA > 0) {
-    const [mx, my] = tubePt(0, -50);
-    const lx = B.x + CORTEX_C[0] * sB, ly = B.y + (CORTEX_C[1] - 46 * liftU) * sB;
-    const x = lerp(lx, mx, fly), y = lerp(ly, my, fly) - Math.sin(fly * Math.PI) * 120, sc = sB * lerp(1, .22, fly);
-    ctx.save(); ctx.globalAlpha *= seg(t, .3, 1.0) * (1 - seg(fly, .85, 1)); ctx.translate(x, y); ctx.rotate(-.06 * liftU + .5 * fly); ctx.scale(sc, sc); ctx.translate(-CORTEX_C[0], -CORTEX_C[1]);
-    ctx.beginPath(); cortexPath(ctx); ctx.fillStyle = rgb(mix(pal.body, pal.rim, .1)); ctx.fill();
-    ctx.fillStyle = rgb(pal.rim, .5); for (const [px, py, r] of SPECKS) { ctx.beginPath(); ctx.arc(px, py, r * 1.6, 0, TAU); ctx.fill(); }
-    ctx.beginPath(); cortexPath(ctx); ctx.strokeStyle = rgb(pal.rim); ctx.lineWidth = 2.2 / sc; ctx.stroke();
-    ctx.restore();
-  }
-  stageLabel(B.x, 820, '1', 'Dissect cortex', 'P5 rat or mouse', seg(t, .8, 1.4) * (1 - seg(t, 7.4, 8.0)));
-  // arrow brain → tube
-  const arA = seg(t, 2.2, 2.6) * (1 - seg(t, 7.4, 8.0));
-  if (arA > 0) {
-    ctx.save(); ctx.globalAlpha *= arA; ctx.strokeStyle = fg(.3); ctx.fillStyle = fg(.3); ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(880, 560); ctx.lineTo(1120, 560); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(1132, 560); ctx.lineTo(1118, 552); ctx.lineTo(1118, 568); ctx.closePath(); ctx.fill(); ctx.restore();
-  }
-  // ---- 2 · tube: papain digest
-  const tubeA = seg(t, 2.0, 2.6) * (1 - seg(t, 8.4, 9.0));
-  const papain = seg(t, 3.9, 4.6), soft = ease(seg(t, 4.4, 5.8));
-  if (tubeA > 0) {
-    ctx.save(); ctx.globalAlpha *= tubeA; ctx.translate(TUBE.x, TUBE.y); ctx.scale(TUBE.s, TUBE.s);
-    ctx.beginPath(); tubeBody(ctx); ctx.fillStyle = rgb(UI.rim, UI.glassA); ctx.fill();
-    ctx.save(); ctx.beginPath(); tubeBody(ctx); ctx.clip();
-    ctx.fillStyle = rgb(mix(liqC([70, 86, 100]), UI.serumDrop, .35 * papain), .45); ctx.fillRect(-20, -12, 40, 70);
-    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-20, -12, 40, .5);
-    ctx.restore();
-    ctx.lineWidth = 1.4 / TUBE.s; ctx.beginPath(); tubeBody(ctx); ctx.strokeStyle = rgb(UI.rim, Math.min(1, .6 * UI.rimA)); ctx.stroke();
-    ctx.fillStyle = rgb(UI.rim, .3 * UI.rimA); rr(-20, -52, 40, 7, 2); ctx.fill();
-    ctx.restore();
-    // papain drops
-    for (let i = 0; i < 3; i++) {
-      const u = seg(t, 3.9 + i * .16, 4.3 + i * .16); if (u <= 0 || u >= 1) continue;
-      const x = TUBE.x + (i - 1) * 12, y = lerp(TUBE.y - 330, TUBE.y - 20, u * u);
-      ctx.fillStyle = rgb(UI.serumDrop, .9); ctx.beginPath(); ctx.moveTo(x, y - 11); ctx.quadraticCurveTo(x + 6, y, x, y + 5); ctx.quadraticCurveTo(x - 6, y, x, y - 11); ctx.fill();
+  const pt = prevStep === 1 ? prevT : STEPS[1].dur;          // how far step 2 had got
+  const relax = ease(seg(t, .1, 1.3));
+  const heroR0 = .36 * ease(seg(pt, 1.2, 5.5)), focus0 = ease(seg(pt, .2, 1.4));
+  const bgA = 1 - ease(seg(t, 1.3, 2.9));                    // matrix / neuropil / vessel digested
+  const cellQ = i => {
+    const src = SRC_OF.get(i), st = src ? src.st : hash(i * 3.1);
+    const sprout = 1 - ease(seg(t, 1.5 + st * .7, 2.9 + st * .7));
+    const a = src ? 1 - seg(t, 3.0 + st * .6, 3.4 + st * .6) : 1 - seg(t, 2.0 + st * .6, 3.0 + st * .6);
+    return { a, sprout };
+  };
+  const { z, dx } = tisCam(gt);
+  tissueView(gt, { heroR: heroR0 * (1 - relax), focus: focus0 * (1 - relax), bgA, cell: cellQ }, () => {
+    if (prevStep === 1 || t < .6) {
+      drawWhoOverlay(pt + t, gt, 1 - seg(t, 0, .45));
+      drawFocusLabels(() => 1 - seg(t, 0, .45), seg(heroR0, .2, .3));
     }
-  }
-  // pieces: the cortex splits as it enters, falls into the liquid, softens, then breaks up
-  if (t > 3.3) PIECES.forEach((p, j) => {
-    const u = ease(seg(t, 3.3 + p.st * .3, 4.0 + p.st * .3)), ba = 1 - seg(t, breakT(j), breakT(j) + .35);
-    if (ba <= 0) return;
-    const [mx, my] = tubePt(0, -46), wob = soft * 1.2;
-    const [hx, hy] = tubePt(p.x + Math.sin(gt * 1.3 + p.ph) * wob, p.y + Math.cos(gt * 1.1 + p.ph) * wob);
-    const x = lerp(mx, hx, u), y = lerp(my, hy, u);
-    drawPiece(p, x, y, p.r * TUBE.s * (1 - .28 * soft) * lerp(.6, 1, ba), tubeA * ba, soft);
   });
-  // ---- 3 · trituration pipette
-  const pIn = seg(t, 5.8, 6.2), pOut = seg(t, 7.4, 7.8);
-  if (pIn > 0 && pOut < 1) {
-    const u = seg(t, 6.2, 7.4), stroke = .5 - .5 * Math.cos(u * TAU * 3);
-    const tipY = lerp(TUBE.y - 330, TUBE.y + 110, eOut(pIn)) - stroke * 90 - eOut(pOut) * 520;
-    drawPipette(TUBE.x + 4, tipY, u > 0 && u < 1 ? .2 + .6 * stroke : .2, liqC([70, 86, 100]), null, 1 - pOut, 0);
+  ctx.save(); ctx.globalAlpha *= 1 - seg(t, 3.4, 4.4); edgeShade(); ctx.restore();   // step 2's heading band, kept while the tissue is there
+  // papain wash: a warm front crosses the field, leaving a faint tint while it digests
+  const wash = seg(t, .7, 2.3);
+  if (wash > 0 && t < 4.2) {
+    const xw = lerp(-500, W + 500, ease(wash)), tint = UI.serumDrop, linger = .07 * (1 - seg(t, 3.0, 4.2));
+    const g = ctx.createLinearGradient(xw - 500, 0, xw + 60, 0);
+    g.addColorStop(0, rgb(tint, linger)); g.addColorStop(.8, rgb(tint, .16)); g.addColorStop(1, rgb(tint, 0));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, Math.max(0, xw + 60), H);
   }
-  const lab2 = seg(t, 2.8, 3.4) * (1 - seg(t, 5.8, 6.2)), lab3 = seg(t, 6.0, 6.5) * (1 - seg(t, 8.0, 8.6));
-  stageLabel(TUBE.x, 820, '2', 'Papain digest', '34 °C · enzyme loosens the tissue', lab2);
-  stageLabel(TUBE.x, 820, '3', 'Triturate', 'pipetting frees single cells', lab3);
-  // ---- single cells: freed by trituration, then poured into the suspension
+  // rounded single cells: appear where their tissue cell was, then gather into the suspension
   SUS.forEach((c, i) => {
-    const j = i % PIECES.length, a0 = seg(t, breakT(j) + .05, breakT(j) + .45); if (a0 <= 0) return;
-    const p = PIECES[j], home = TUBE_HOME[i];
-    const [bx, by] = tubePt(p.x, p.y), [hx, hy] = tubePt(home[0] + Math.sin(gt * .9 + c.ph) * 1, home[1] + Math.cos(gt * .7 + c.ph) * 1);
-    const m = ease(seg(t, breakT(j) + .05, breakT(j) + .9));
-    let x = lerp(bx, hx, m), y = lerp(by, hy, m), s = .9;
-    const st = hash(i * 1.37), u = ease(seg(t, 7.9 + st * .6, 8.8 + st * .6));
-    if (u > 0) {
-      const mx = TUBE.x, my = TUBE.y - 280;
-      x = (1 - u) * (1 - u) * x + 2 * (1 - u) * u * mx + u * u * c.cx; y = (1 - u) * (1 - u) * y + 2 * (1 - u) * u * my + u * u * c.cy; s = lerp(.9, 1.4, u);
-    }
-    if (u >= 1) { x += Math.sin(gt * 1.2 + c.ph) * 3; y += Math.cos(gt + c.ph) * 3; }
-    c.rd.draw(ctx, x, y, gt, { a: a0, s });
+    const src = SUS_SRC[i], st = src.st;
+    const a = src.cell >= 0 ? seg(t, 3.0 + st * .6, 3.4 + st * .6) : seg(t, 2.2 + st * .6, 2.8 + st * .6);
+    if (a <= .004) return;
+    const sx = W / 2 + z * (src.x - W / 2 + dx), sy = H / 2 + z * (src.y - H / 2);
+    const u = ease(seg(t, 3.7 + st * .9, 5.2 + st * .9));
+    const x = lerp(sx, c.cx, u) + Math.sin(gt * 1.2 + c.ph) * 3 * u, y = lerp(sy, c.cy, u) + Math.cos(gt + c.ph) * 3 * u;
+    c.rd.draw(ctx, x, y, gt, { a, s: lerp(1.15, 1.4, u) });
   });
-  typeLegend(960, 880, seg(t, 8.9, 9.5));
+  // what is happening, as a lower third
+  const l1 = seg(t, .9, 1.5) * (1 - seg(t, 3.4, 3.9)), l2 = seg(t, 3.7, 4.2) * (1 - seg(t, 5.7, 6.2));
+  txt('Papain digestion, 34 °C', W / 2, 990, { a: l1, size: 24, w: 600, align: 'center', halo: 8 });
+  txt('Trituration into a single-cell suspension', W / 2, 990, { a: l2, size: 24, w: 600, align: 'center', halo: 8 });
+  typeLegend(960, 880, seg(t, 5.6, 6.3));
 }
 // T = seconds since the suspension started moving to the first plate
 function panning(T, gt) {
@@ -244,23 +165,15 @@ function panning(T, gt) {
   });
   chevron(210, PY, bA * .5);
   // cells
-  let wsum = {}, tot = 0; TYPES.forEach(ty => wsum[ty] = 0);
   for (const c of SUS) {
     const q = susPos(c, T);
     c.rd.draw(ctx, q.x, q.y, gt, { b: q.b, a: q.a, s: lerp(1.4, 1.1, ease(seg(T, 0, 1.6))) });
-    const w = (1 - q.b) * (c.cap === -1 && T > PA0 + 5 * PD + 1.6 ? 0 : 1);
-    wsum[c.type] += w; tot += w;
   }
   // flow-through
   const fa = seg(t4, 2.6, 3.4) * (1 - seg(t4, 5.5, 6.2));
   txt('flow-through', 1830, PY - 60, { a: fa, size: 16, it: true, align: 'center', col: COL.dim });
   chevron(1800, PY, fa * .6); chevron(1830, PY, fa * .4);
-  // composition bar: what is still in suspension → what the positive plate caught
-  compBar(560, 830, 800, 18, wsum, tot, 'cells still in suspension', seg(T, 1, 1.8) * (1 - seg(t4, 3.2, 4)));
-  const pa = seg(t4, 3.6, 4.4), fillU = ease(seg(t4, 3.8, 5.6));
-  const ws = { astro: 99.3 * fillU, micro: .25 * fillU, oligo: .25 * fillU, neuron: .2 * fillU, endo: 0 };
-  compBar(560, 830, 800, 18, ws, 100, 'bound to the anti-ITGB5 plate', pa, true);
-  txt('> 99% astrocytes', 960, 900, { a: seg(t4, 5.2, 5.9), size: 34, w: 600, align: 'center', col: COL.teal });
+  txt('> 99% astrocytes', 960, 840, { a: seg(t4, 4.4, 5.1), size: 34, w: 600, align: 'center', col: COL.teal });
   typeLegend(960, lerp(880, 975, ease(seg(T, 0, .9))), 1);
 }
 // step k = 1: same trick → three pure cultures
