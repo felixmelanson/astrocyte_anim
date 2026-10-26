@@ -64,7 +64,7 @@ function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x 
 
 function drawTube(x, y, o = {}) {          // 1.5 ml microcentrifuge tube; (x,y) = liquid level point
   const a = o.a ?? 1; if (a <= .004) return;
-  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y);
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); const sc = o.s || 1; ctx.scale(sc, sc);
   const body = () => { ctx.beginPath(); ctx.moveTo(-17, -46); ctx.lineTo(17, -46); ctx.lineTo(15, 8); ctx.quadraticCurveTo(10, 46, 0, 50); ctx.quadraticCurveTo(-10, 46, -15, 8); ctx.closePath(); };
   body(); ctx.fillStyle = rgb(UI.rim, UI.glassA * .9); ctx.fill();
   ctx.save(); body(); ctx.clip(); ctx.fillStyle = rgb(liqC(o.liq || [60, 80, 96]), .55); ctx.fillRect(-20, -12, 40, 70);
@@ -74,8 +74,8 @@ function drawTube(x, y, o = {}) {          // 1.5 ml microcentrifuge tube; (x,y)
   ctx.fillStyle = rgb(UI.rim, .25 * UI.rimA); rr(-20, -52, 40, 7, 2); ctx.fill();
   ctx.strokeStyle = rgb(UI.rim, Math.min(1, .45 * UI.rimA)); ctx.beginPath(); ctx.ellipse(-34, -56, 15, 5, -.35, 0, TAU); ctx.stroke();  // open cap
   ctx.restore();
-  if (o.label) txt(o.label, x, y + 78, { a: a, size: 16, align: 'center', col: o.labCol || COL.text, w: 500 });
-  if (o.label2) txt(o.label2, x, y + 98, { a: a * .9, size: 14, align: 'center', col: COL.dim });
+  if (o.label) txt(o.label, x, y + 78 * (o.s || 1), { a: a, size: o.lsz || 16 * (o.s || 1), align: 'center', col: o.labCol || COL.text, w: 500 });
+  if (o.label2) txt(o.label2, x, y + 98 * (o.s || 1), { a: a * .9, size: 14 * (o.s || 1), align: 'center', col: COL.dim });
 }
 function drawClock(x, y, prog, a) {
   if (a <= .004) return;

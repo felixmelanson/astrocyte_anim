@@ -52,14 +52,20 @@ and `busy` (a crowded moment, used by the contact sheet). If you retime a step, 
 
 ```
 cd tools && npm install && npx playwright install chromium   # once
-node render.mjs                        # all steps, light theme, 30 fps
-node render.mjs --steps 3,7-9 --theme dark --fps 60 --jobs 3
+node render.mjs                        # every step with a clip, light theme, 30 fps
+node render.mjs --steps 3,7-9 --theme dark --fps 60 --jobs 3 --out out/clips
 node contact.mjs                       # out/contact/sheet.png for layout review
 ```
 
+Clips are a horizontal band of the 1920×1080 stage (`CROP` in `js/app.js`: 1920×768, trimmed
+top and bottom). Titles, sub-captions and the footer citation are hidden (`?render=1`), since
+they are set on the slide. Step 1 is a still (`video: false`); step 2's clip opens already
+blurred (`t0`).
+
 Frames are rendered deterministically through `window.__seek(k, t, gt, prevStep, prevT)` with
-`gt = gtBase(k) + t`, so consecutive clips join seamlessly and re-renders are identical. Step 3 is
-rendered as if arriving from step 2, so the tissue hand-off plays. Requires `ffmpeg` on PATH.
+`gt = gtBase(k) + t`. Every clip opens on the previous clip's last frame (`render()` dissolves
+from it; `joins` / `morph` steps carry it in their own code), so clips butt together without a
+jump. Requires `ffmpeg` on PATH.
 
 ## Controls
 

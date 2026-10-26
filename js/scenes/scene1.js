@@ -146,14 +146,14 @@ function drawFocusLabels(al, heroCol = 0) {
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(lerp(sx, ex, grow), lerp(sy, p.ly, grow)); ctx.stroke();
     ctx.fillStyle = fg(.85); ctx.beginPath(); ctx.arc(sx, sy, 2.8, 0, TAU); ctx.fill(); ctx.restore();
     const col = p.hero ? mix(COL.text, COL.coral, heroCol) : COL.text;
-    txt(p.hero && heroCol > .5 ? 'Reactive astrocyte' : p.name, p.lx, p.ly + 7, { a: a * seg(a, .3, 1), size: 22, w: 600, align: p.side < 0 ? 'right' : 'left', col, halo: 7 });
+    txt(p.hero && heroCol > .5 ? 'Reactive astrocyte' : p.name, p.lx, p.ly + 7, { a: a * seg(a, .3, 1), size: 30, w: 600, align: p.side < 0 ? 'right' : 'left', col, halo: 8 });
   }
 }
 // the tissue as seen through the scene-1 camera; steps 1–3 all draw through this
-const tisCam = gt => ({ z: 1.02 + .02 * Math.sin(gt * .045), dx: Math.sin(gt * .03) * 10 });
+const tisCam = gt => ({ z: 1.02 + .02 * Math.sin(gt * .045), dx: Math.sin(gt * .03) * 10, dy: 70 });   // dy: the cluster sits lower, clear of the clip band's top edge
 function tissueView(gt, o, overlay) {
-  const { z, dx } = tisCam(gt);
-  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2 + dx, -H / 2);
+  const { z, dx, dy } = tisCam(gt);
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2 + dx, -H / 2 + dy);
   drawTissue(ctx, gt, o);
   if (overlay) overlay();
   ctx.restore();

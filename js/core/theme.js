@@ -81,6 +81,7 @@ function txt(s, x, y, o = {}) {
   ctx.restore();
 }
 // Slide heading: left-aligned title + optional sub-line. Copy lives on each STEPS entry (app.js).
+// Hidden in video renders (?render=1): the titles are set on the slide itself.
 const TITLE_X = 80, TITLE_Y = 92;
-function caption(s, a) { if (!s) return; txt(s, TITLE_X, TITLE_Y, { a, size: 36, w: 600, col: COL.text, halo: 8 }); }
-function subcap(s, a) { if (!s) return; txt(s, TITLE_X, TITLE_Y + 38, { a, size: 21, w: 500, col: COL.dim, halo: 6 }); }
+function caption(s, a) { if (!s || RENDER_MODE) return; txt(s, TITLE_X, TITLE_Y, { a, size: 36, w: 600, col: COL.text, halo: 8 }); }
+function subcap(s, a) { if (!s || RENDER_MODE) return; txt(s, TITLE_X, TITLE_Y + 38, { a, size: 21, w: 500, col: COL.dim, halo: 6 }); }

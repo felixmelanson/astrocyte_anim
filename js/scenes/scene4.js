@@ -29,23 +29,33 @@ const LIQ = {   // dark-theme medium colours; liqC() lightens them for the light
 // Results panel along the bottom: two groups (astrocyte response, RGC survival).
 // step = the scene-4 step (k) whose result produces the item.
 const CARDS = [
-  { l: ['LPS'], res: 'No change', k: 'a', r: 0, step: 1 },
-  { l: ['Activated microglia', 'medium'], res: 'A1', k: 'a', r: 1, step: 2 },
-  { l: ['Resting microglia', 'medium'], res: 'No change', k: 'a', r: 0, step: 2 },
-  { l: ['IL-1α + TNF + C1q'], res: 'A1', k: 'a', r: 1, step: 3 },
-  { l: ['Activated microglia', 'medium + nAbs'], res: 'No change', k: 'a', r: 0, step: 4 },
-  { l: ['A1 astrocyte', 'medium'], res: 'Death', k: 'n', d: 1, step: 5 },
-  { l: ['Activated microglia', 'medium'], res: 'Survival', k: 'n', d: 0, step: 7 },
-  { l: ['IL-1α + TNF + C1q'], res: 'Survival', k: 'n', d: 0, step: 7 },
+  { l: 'LPS directly', res: 'No change', step: 1 },
+  { l: 'Activated microglia medium', res: 'A1', step: 2 },
+  { l: 'Resting microglia medium', res: 'No change', step: 2 },
+  { l: 'IL-1α + TNF + C1q', res: 'A1', step: 3 },
+  { l: 'Activated microglia medium + nAbs', res: 'No change', step: 4 },
+  { l: 'A1 astrocyte medium', res: 'Death', step: 5 },
+  { l: 'Activated microglia medium', res: 'Survival', step: 7 },
+  { l: 'IL-1α + TNF + C1q', res: 'Survival', step: 7 },
 ];
-const LEDGER = { y: 922, r: 24, groups: [['Astrocyte response', 0, 4], ['RGC survival', 5, 7]] };
-const cardX = i => 200 + 200 * i + (i >= 5 ? 120 : 0);
+// Dishes are the same tilted petri dishes as step 5 (tiltDish in scene3.js). DYR = centre of the rim ellipse of a
+// full-size dish; contents are drawn on the floor, FY, one wall-height below it.
+const RT = 1.08;                                   // tilt, in tiltDish units (about 56 degrees)
+const rKy = () => tiltK(RT), rWall = r => tiltWall(r, RT), rRy = r => r * rKy();
+const DYR = 350, FY = DYR + rWall(DR);             // floor centre of the full-size dishes
+const rimTop = r => FY - rWall(r) - rRy(r);         // top of a dish's rim ellipse
+const NAME_Y = FY + rRy(DR) + 46;                  // dish names sit under the front glass
+// results table under the dishes: one row per earned result, newest row at full strength
+const STAGE = { s: 1, y: 178 };
+const sx = x => x, sy = y => y;
+function stageBegin() { ctx.save(); }
 
 const POS = {
-  M: { x: DX.M, y: DY }, A: { x: DX.A, y: DY }, N: { x: DX.N, y: DY, lift: 120 },
-  vialL: { x: 660, y: 262 }, vialR: { x: 1260, y: 262 }, well: { x: 660, y: 262 }, filt: { x: 1260, y: 300 },
+  M: { x: DX.M, y: FY }, A: { x: DX.A, y: FY }, N: { x: DX.N, y: FY, lift: 120 },
+  vialL: { x: 660, y: 280, arcUp: 100 }, vialR: { x: 1260, y: 290 }, well: { x: 660, y: 300 }, filt: { x: 1260, y: 300 },
+  R: { x: 660, y: FY },                            // the small resting-microglia dish of step 9
 };
-const MN = { x: DX.M, y: DY };
+const MN = { x: DX.M, y: FY };
 // in vivo AQP4 inset (Ext. Data Fig. 5a) during the microglia-medium step; off since the declutter pass
 // (an in vivo marker squeezed between two in vitro dishes). Set true to bring it back.
 const SHOW_AQP4_INSET = false;
@@ -54,8 +64,8 @@ const SHOW_AQP4_INSET = false;
 function scene4(k, t, gt, S) {
   const st = {
     m: { mode: 'act', act: 1, a: 1, fields: [] }, a: { layers: [] }, n: { layers: [] },
-    hops: [], arcs: [], tubes: [], clock: null, caps: [], legend: 0, extra: [], cards: [],
-    mSub: '', aSub: '', nSub: '', mName: 'Microglia', aHL: 0,
+    hops: [], arcs: [], tubes: [], clock: null, caps: [], leg: { sec: 0, names: 0 }, extra: [], cards: [],
+    aSub: '', nSub: '', mName: 'Microglia', aHL: 0,
   };
   const mcmSteady = { f: F.mcm, o: {} };
   const reset = (layerOld, layerNew, t0 = 0) => [{ ...layerOld, a: (layerOld.a ?? 1) * (1 - seg(t, t0, t0 + .45)) }, { ...layerNew, a: (layerNew.a ?? 1) * seg(t, t0 + .45, t0 + .95) }];
@@ -63,7 +73,7 @@ function scene4(k, t, gt, S) {
   const H = (src, dst, t0, sp, liq, dots, ok, lift = 110, o = {}) => {
     st.hops.push({ src, dst, t0, sp, liq, dots });
     const td = t0 + HOPD * sp;
-    st.arcs.push({ from: o.arcFrom || src, to: o.arcTo || dst, prog: seg(t, td, td + .8), ok, lift, a: o.arcA ?? 1 });
+    st.arcs.push({ from: o.arcFrom || src, to: o.arcTo || dst, prog: seg(t, td, td + .8), ok, lift: Math.min(lift, 48), a: o.arcA ?? 1 });
     return td;
   };
   const tipO = () => [0, -18];
@@ -74,8 +84,8 @@ function scene4(k, t, gt, S) {
   // defaults: from step 3 on, microglia are LPS-activated and their medium is in the dish
   st.m.act = k >= 3 ? 1 : 0; st.m.fields = k >= 3 ? [mcmSteady] : [];
   st.a.layers = [{ r: 0, fields: [] }]; st.n.layers = [{ d: 0, fields: [] }];
-  st.legend = k >= 3 ? 1 : 0;
-  if (k >= 3) st.mSub = '+ LPS';
+  st.leg = { sec: k >= 3 ? 1 : 0, names: k >= 4 ? 1 : 0 };      // legend entries appear when their glyph first does
+  if (k >= 4) st.leg.sec = 0;
 
   switch (k) {
     case 0: {
@@ -83,40 +93,37 @@ function scene4(k, t, gt, S) {
       break;
     }
     case 1: {
-      st.tubes.push({ p: POS.vialL, label: 'LPS', a: seg(t, 0, .5), dots: DOTS.lps, liq: LIQ.lps });
+      st.tubes.push({ p: POS.vialL, label: 'LPS', a: seg(t, 0, .5), dots: DOTS.lps, liq: LIQ.lps, s: 1.6 });
       const td = H(POS.vialL, POS.A, .6, 1, LIQ.lps, DOTS.lps, false, 60);
       st.a.layers = [{ r: 0, fields: [{ f: F.lpsA, o: { t0: td, origin: tipO, stag: .6 } }] }];
       st.clock = { d: 'A', p: seg(t, td + .8, td + 4.8), a: bump(t, td + .5, td + .9, 99, 100) };
-      st.aSub = t > td + .3 ? '+ LPS' : '';
       st.caps.push([S.cap, seg(t, .3, 1) * (1 - seg(t, td + 4.6, td + 5.1))]);
       st.caps.push([S.capEnd, seg(t, td + 5.1, td + 5.8)]);
       fly(0, td + 5.6);
+      st.fl = { AST: [.3], LPSd: [.3, td + .3, td + 5.6] };
       break;
     }
     case 2: {
       // beat A: LPS activates microglia, which start secreting
       const sp = .8;
-      st.tubes.push({ p: POS.vialL, label: 'LPS', a: 1 - seg(t, 4.6, 5.2), dots: DOTS.lps, liq: LIQ.lps });
+      st.tubes.push({ p: POS.vialL, label: 'LPS', a: 1 - seg(t, 4.6, 5.2), dots: DOTS.lps, liq: LIQ.lps, s: 1.6 });
       const tdA = H(POS.vialL, POS.M, .5, sp, LIQ.lps, DOTS.lps, true, 60, { arcA: 1 - seg(t, 6.0, 6.6) });
       st.m.act = ease(seg(t, tdA + .4, tdA + 2.6));
       st.m.fields = [{ f: F.lpsM, o: { t0: tdA, origin: tipO, stag: .6, a: 1 - seg(t, tdA + 2, tdA + 3) } },
                      { f: F.mcm, o: { t0: tdA + 1.2, stag: 2.6, spread: 2, origin: fromMicro } }];
-      st.legend = seg(t, tdA + 1.6, tdA + 2.4);
+      st.leg.sec = seg(t, tdA + 1.6, tdA + 2.4);
       // beat B: their medium → astrocytes → A1
       const t0C = 15.0;                       // beat C start
       const tdB = H(POS.M, POS.A, 6.2, sp, LIQ.mcm, DOTS.mcm, true, 110, { arcA: 1 - seg(t, t0C, t0C + .6) });
       const rB = ease(seg(t, tdB + .6, tdB + 4.4));
       // beat C: control, medium from resting microglia → no change
-      const tdC = H(POS.M, POS.A, t0C + .4, .7, LIQ.rest, DOTS.rest, false);
+      const tdC = H(POS.R, POS.A, t0C + .4, .7, LIQ.rest, DOTS.rest, false, 70);
+      st.rest = seg(t, t0C - .6, t0C + .3);       // a second, small resting-microglia dish slides in between
       if (t < t0C) {
-        st.mSub = t > tdA + .3 ? '+ LPS' : '';
         st.a.layers = reset({ r: 0, fields: [{ f: F.lpsA, o: {} }] }, { r: rB, fields: [{ f: F.mcmA, o: { t0: tdB, origin: tipO, stag: .6 } }] });
         st.clock = { d: 'A', p: seg(t, tdB + .6, tdB + 4.4), a: seg(t, tdB + .3, tdB + .7) };
-        st.aSub = t > tdB + 3.4 ? 'A1 reactive' : '';
         st.inset = { r: rB, a: seg(t, tdB + 1, tdB + 1.8) };
       } else {
-        st.m.swap = { old: 1 - seg(t, t0C, t0C + .5), neu: seg(t, t0C + .5, t0C + 1.1) };
-        st.mSub = t > t0C + .5 ? 'no LPS' : '+ LPS';
         st.a.layers = reset({ r: 1, fields: [{ f: F.mcmA, o: {} }] }, { r: 0, fields: [{ f: F.restA, o: { t0: tdC, origin: tipO, stag: .6 } }] }, t0C);
         st.clock = { d: 'A', p: seg(t, tdC + .4, tdC + 2.4), a: seg(t, tdC + .1, tdC + .5) };
         st.inset = { r: 1, a: 1 - seg(t, t0C, t0C + .5) };
@@ -124,21 +131,23 @@ function scene4(k, t, gt, S) {
       st.caps.push([S.cap, seg(t, .3, 1)]);
       st.sub = [S.sub, seg(t, t0C + .3, t0C + 1.1)];
       fly(1, tdB + 4.8); fly(2, tdC + 2.6);
+      st.fl = { LPS: [.4], MG: [.4], e_LPS_MG: [tdA - .2], SEC: [tdA + 1.6], e_MG_SEC: [tdA + 2.2], e_SEC_AST: [tdB], b_AST: [tdB + 4.8], RM: [t0C - .6, tdC, tdC + 2.6] };
       break;
     }
     case 3: {
       st.a.layers = reset({ r: 0, fields: [{ f: F.restA, o: {} }] }, { r: 0, fields: [] });
       st.m.absent = seg(t, 0, .8); st.m.mode = 'rest'; st.m.act = 0; st.m.fields = [{ f: F.restM, o: { a: 1 - seg(t, 0, .6) } }];
-      st.mSub = 'none'; st.mName = 'No microglia';
-      st.tubes.push({ p: POS.vialL, label: 'IL-1α + TNF + C1q', a: seg(t, .3, .8), dots: DOTS.cyto, liq: LIQ.cyto });
+      st.mName = 'No microglia';
+      st.tubes.push({ p: POS.vialL, label: 'IL-1α + TNF + C1q', lsz: 21, a: seg(t, .3, .8), dots: DOTS.cyto, liq: LIQ.cyto });
       const td = H(POS.vialL, POS.A, 1.0, 1, LIQ.cyto, DOTS.cyto, true, 60);
+      st.leg.names = seg(t, td + .2, td + 1.0); st.leg.sec = 1 - st.leg.names;
       const r = ease(seg(t, td + .8, td + 6.3));
       st.a.layers[1].r = r; st.a.layers[1].fields = [{ f: F.cyto, o: { t0: td, origin: tipO, stag: .6 } }];
       st.clock = { d: 'A', p: seg(t, td + .8, td + 6.3), a: seg(t, td + .5, td + .9) };
-      st.aSub = t > td + 4.5 ? 'A1 reactive' : '';
       st.caps.push([S.cap, seg(t, .3, 1)]);
       st.sub = [S.sub, seg(t, 1, 1.8)];
       fly(3, td + 7.0);
+      st.fl = { CK: [.3, td, td + 7.0] };
       break;
     }
     case 4: {
@@ -152,37 +161,27 @@ function scene4(k, t, gt, S) {
       st.legendAb = seg(t, td1 + 1, td1 + 1.8);
       st.caps.push([S.cap, seg(t, .3, 1)]);
       fly(4, td2 + 5.3);
+      st.fl = { NAB: [.3, td2, td2 + 5.3] };
       break;
     }
     case 5: {
-      // A1 astrocyte medium → 30 kDa concentrator → purified RGCs, which die
+      // A1 astrocyte medium → 30 kDa concentrator → purified RGCs, which die. Static arrows, no pipette.
       st.a.layers = reset({ r: 0, fields: [{ f: F.nabA, o: {} }] }, { r: 1, fields: [] });
-      st.aSub = t > .6 ? 'A1 reactive' : '';
-      st.a.layers[1].fields = [{ f: F.acm, o: { t0: .5, stag: 1.6, spread: 1.8, origin: fromAstro } }];
-      st.qmark = seg(t, 1.4, 2.2);
-      st.legendTox = seg(t, 1.2, 2.0); st.legendAb = 1;
-      const sp = .75;
-      const tdF = H(POS.A, POS.filt, 2.0, sp, LIQ.acm, DOTS.acm, true, 50);
-      const t0N = tdF + 2.7;
-      const tdN = H(POS.filt, POS.N, t0N, sp, LIQ.conc, DOTS.conc, true, 50);
-      st.arcs[0].a = 1 - seg(t, t0N + .5, t0N + 1.2);
-      st.filter = {
-        a: seg(t, 1.6, 2.2) * (1 - seg(t, tdN + 1, tdN + 1.8)),
-        fill: seg(t, tdF, tdF + .5) * (1 - seg(t, t0N + 1.2 * sp, t0N + 1.9 * sp)),
-        conc: ease(seg(t, tdF + .6, tdF + 2.4)), spin: bump(t, tdF + .5, tdF + .8, tdF + 2.2, tdF + 2.5),
-        lab: seg(t, tdF + 2, tdF + 2.6), t,
-      };
-      const d = seg(t, tdN + .5, tdN + 5.0);
-      st.n.layers = [{ d, fields: [{ f: F.concN, o: { t0: tdN, origin: tipO, stag: .6 } }] }];
-      st.clock = { d: 'N', p: d, a: seg(t, tdN + .2, tdN + .6) };
-      st.nSub = t > tdN + .3 ? '50 µg/ml protein' : '';
-      st.casp = seg(t, tdN + 2, tdN + 2.8);
+      st.a.layers[1].fields = [{ f: F.acm, o: { t0: .3, stag: 1.0, spread: 1.4, origin: fromAstro } }];
+      st.legendTox = seg(t, .8, 1.5); st.legendAb = 1;
+      const tF = .4, tN = 2.2, gone = 1 - seg(t, tN, tN + .5);        // filter and both arrows appear together and leave together
+      st.arrows = [{ x0: DX.A + DR + 8, x1: POS.filt.x - 36, y: FY - rWall(DR) - 4, a: seg(t, tF, tF + .3) * gone }, { x0: POS.filt.x + 36, x1: DX.N - DR - 8, y: FY - rWall(DR) - 4, a: seg(t, tF, tF + .3) * gone }];
+      st.filter = { a: seg(t, tF, tF + .3) * gone, fill: 1, conc: 1, spin: 0, lab: 0, t };
+      const d = seg(t, tN + .4, tN + 3.8);
+      st.n.layers = [{ d, fields: [{ f: F.concN, o: { t0: tN, origin: () => [-DR, 0], stag: .8 } }] }];
+      st.clock = { d: 'N', p: d, a: seg(t, tN + .2, tN + .6) };
       st.caps.push([S.cap, seg(t, .3, 1)]);
-      fly(5, tdN + 5.2);
+      fly(5, tN + 4.0);
+      st.fl = { RGC: [tN], e_AST_RGC: [tN], b_RGC: [tN + 4.0] };
       break;
     }
     case 6: {
-      st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1; st.qmark = 1;
+      st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.legendTox = 1; st.legendAb = 1;
       st.n.layers = [{ d: 1, fields: [{ f: F.concN, o: {} }], a: 1 - seg(t, 0, .6) }];
       st.wells = { a: seg(t, .4, 1.2), t };
       st.caps.push([S.cap, seg(t, .3, 1)]);
@@ -190,23 +189,23 @@ function scene4(k, t, gt, S) {
     }
     case 7: {
       // both controls straight onto RGCs: activated-microglia medium, then the three cytokines
-      st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.aSub = 'A1 reactive'; st.legendTox = 1; st.legendAb = 1; st.qmark = 1;
+      st.a.layers = [{ r: 1, fields: [{ f: F.acm, o: {} }] }]; st.legendTox = 1; st.legendAb = 1;
       st.wells = { a: 1 - seg(t, 0, .5), t: 99 };
       const sp = .8, t0C = 6.0;
       const tdM = H(POS.M, POS.N, .9, sp, LIQ.mcm, DOTS.mcm, false, 120, { arcA: 1 - seg(t, t0C, t0C + .6) });
-      st.tubes.push({ p: POS.vialR, label: 'IL-1α + TNF + C1q', a: seg(t, t0C - .6, t0C - .1), dots: DOTS.cyto, liq: LIQ.cyto });
+      st.tubes.push({ p: POS.vialR, label: 'IL-1α + TNF + C1q', lsz: 21, a: seg(t, t0C - .6, t0C - .1), dots: DOTS.cyto, liq: LIQ.cyto });
       const tdC = H(POS.vialR, POS.N, t0C, sp, LIQ.cyto, DOTS.cyto, false, 60);
       const dishA = seg(t, .45, 1), sw = t0C + .2;
       st.n.layers = reset({ d: 0, fields: [{ f: F.mcmN, o: { t0: tdM, origin: tipO, stag: .6 } }], a: dishA }, { d: 0, fields: [{ f: F.cytoN, o: { t0: tdC, origin: tipO, stag: .6 } }], a: dishA }, sw);
       st.clock = t < sw + .4 ? { d: 'N', p: seg(t, tdM + .4, tdM + 2.4), a: seg(t, tdM + .1, tdM + .5) * (1 - seg(t, sw, sw + .4)) }
                              : { d: 'N', p: seg(t, tdC + .4, tdC + 2.4), a: seg(t, tdC + .1, tdC + .5) };
-      st.nSub = (t > tdM + 2.4 && t < sw) || t > tdC + 2.4 ? 'survive' : '';
       const fin = seg(t, tdC + 3.4, tdC + 4.2);
       st.caps.push([S.cap, seg(t, .3, 1) * (1 - seg(t, tdC + 2.8, tdC + 3.4))]);
       st.caps.push([S.capEnd, fin]);
       st.aHL = fin;
       st.aBypass = seg(t, 0, .6) * (1 - fin); st.mBypass = seg(t, t0C, t0C + .6) * (1 - fin);
       fly(6, tdM + 2.6); fly(7, tdC + 2.6);
+      st.fl = { AMM: [.6, tdM, tdM + 2.6], CK2: [t0C - .6, tdC, tdC + 2.6] };
       break;
     }
   }
@@ -214,172 +213,245 @@ function scene4(k, t, gt, S) {
 }
 // set by step 15 to reuse step 14's last frame without its results panel / heading
 const RELAY_SKIP = { ledger: false, caps: false };
+const ghostDish = (x, r, a) => {               // dashed outline: a dish that is absent
+  if (a <= .004) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.setLineDash([9, 9]); ctx.strokeStyle = rgb(GRAYP.rim, .75); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, FY - rWall(r), r, rRy(r), 0, 0, TAU); ctx.stroke(); ctx.restore();
+};
 function renderRelay(s, t, gt, st) {   // s = scene-4 step k
   const intro = st.intro;
+  // field release times (o.t0) are step-local; Field.pos compares them with the global clock
+  const gO = o => o.t0 === undefined ? o : { ...o, t0: o.t0 + gt - t };
   const dA = key => intro ? seg(t, { M: .2, A: .5, N: .8 }[key], { M: 1, A: 1.3, N: 1.6 }[key]) : 1;
+  const dish = (x, r, a, content, o) => tiltDish(x, FY - rWall(r), r, RT, a, UI.dish, content, o);
+  const name = (str, x, a, col, y = NAME_Y) => txt(str, x, y, { a, size: 28, w: 600, align: 'center', col: col || COL.text });
+  const state = (str, x, a, col) => txt(str, x, NAME_Y + 36, { a, size: 26, align: 'center', col });
   // --- hop arcs (under everything)
+  const top = p => p === POS.R ? rimTop(86) - 6 : rimTop(DR) - 6;
   for (const a of st.arcs) {
-    const fx = a.from.x, fy = a.from === POS.M || a.from === POS.A || a.from === POS.N ? DY - DR - 6 : a.from.y - 50;
-    const tx = a.to.x, ty = a.to === POS.M || a.to === POS.A || a.to === POS.N ? DY - DR - 6 : a.to.y - 60;
+    const dishy = p => p === POS.M || p === POS.A || p === POS.N || p === POS.R;
+    const fx = a.from.x, fy = dishy(a.from) ? top(a.from) : a.from.y - (a.from.arcUp ?? 50);
+    const tx = a.to.x, ty = dishy(a.to) ? top(a.to) : a.to.y - 60;
     hopArc(fx, fy, tx, ty, a.lift, a.prog, a.ok, a.a ?? 1);
   }
   // --- microglia dish
   {
     const a = dA('M') * (1 - .7 * (st.mBypass || 0)), m = st.m;
-    const absent = m.absent || 0, ret = m.returnA ?? 1;
-    drawDish(DX.M, DY, DR, { a: a * (1 - absent) * (s === 4 ? ret : 1) });
-    if (absent > 0 || (s === 4 && ret < 1)) drawDish(DX.M, DY, DR, { dashed: true, a: s === 4 ? 1 - ret : absent });
-    ctx.save(); clipCircle(DX.M, DY, DR - 4); ctx.translate(DX.M, DY);
-    if (m.swap) {
-      MIC.forEach(c => c.draw(ctx, { t: gt, r: 1, a: a * m.swap.old }));
-      MIC.forEach(c => c.draw(ctx, { t: gt, r: 0, a: a * m.swap.neu }));
-      F.mcm.draw(ctx, gt, { a: m.swap.old }); F.restM.draw(ctx, gt, { a: m.swap.neu });
-    } else if (s === 3) {
-      MIC.forEach(c => c.draw(ctx, { t: gt, r: 0, a: 1 - absent }));
-      for (const f of m.fields) f.f.draw(ctx, gt, f.o);
-    } else {
-      const ca = a * (s === 4 ? ret : 1);
-      MIC.forEach(c => c.draw(ctx, { t: gt, r: m.act, a: ca }));
-      for (const f of m.fields) f.f.draw(ctx, gt, { ...f.o, a: (f.o.a ?? 1) * ca });
-    }
+    const absent = m.absent || 0, ret = m.returnA ?? 1, da = a * (1 - absent) * (s === 4 ? ret : 1);
+    dish(DX.M, DR, da, () => {
+      if (s === 3) {
+        MIC.forEach(c => c.draw(ctx, { t: gt, r: 0, a: 1 - absent }));
+        for (const f of m.fields) f.f.draw(ctx, gt, gO(f.o));
+      } else {
+        MIC.forEach(c => c.draw(ctx, { t: gt, r: m.act }));
+        for (const f of m.fields) f.f.draw(ctx, gt, gO(f.o));
+      }
+    });
+    ghostDish(DX.M, DR, s === 4 ? a * (1 - ret) : a * absent);
+    name(s === 3 && absent > .5 ? 'No microglia' : 'Microglia', DX.M, a, s === 3 ? GRAYP.rim : COL.text);
+  }
+  // --- step 9 control: a second, small dish of resting microglia slides in between the dishes
+  if (st.rest > .004) {
+    const r = 86, u = ease(st.rest), x = POS.R.x, dy = (1 - u) * -70;
+    ctx.save(); ctx.translate(0, dy);
+    tiltDish(x, FY - rWall(r), r, RT, u, UI.dish, () => {
+      ctx.scale(r / DR, r / DR);
+      MIC.forEach(c => c.draw(ctx, { t: gt, r: 0 }));
+      F.restM.draw(ctx, gt, {});
+    });
+    txt('Resting microglia', x, FY + rRy(r) + 40, { a: u, size: 26, w: 600, align: 'center' });
     ctx.restore();
-    drawDishRim(DX.M, DY, DR, { a: a * (1 - absent) * (s === 4 ? ret : 1) });
-    const nameCol = s === 3 ? GRAYP.rim : COL.text;
-    txt(s === 3 && absent > .5 ? 'No microglia' : 'Microglia', DX.M, DY + DR + 40, { a, size: 24, w: 600, align: 'center', col: nameCol });
-    const subCol = st.mSub === '+ LPS' ? COL.coral : COL.dim;
-    txt(st.mSub === 'none' ? 'skipped entirely' : st.mSub, DX.M, DY + DR + 66, { a: a * (st.mSub ? 1 : 0), size: 17, align: 'center', col: subCol });
   }
   // --- astrocyte dish
   {
     const byp = st.aBypass || 0, a = dA('A') * (1 - .7 * byp);
-    drawDish(DX.A, DY, DR, { a });
-    ctx.save(); clipCircle(DX.A, DY, DR - 4); ctx.translate(DX.A, DY); ctx.globalAlpha *= a;
-    // layers: when a layer is flagged "only", previous fresh layer is hidden to avoid double-drawing cells
-    const L = st.a.layers;
-    L.forEach((ly, i) => {
-      const la = ly.a ?? 1; if (la <= .004) return;
-      AST.forEach(c => c.draw(ctx, { t: gt, r: ly.r, a: la }));
-      for (const f of ly.fields) f.f.draw(ctx, gt, { ...f.o, a: (f.o.a ?? 1) * la });
-    });
-    if (st.qmark) txt('?', 0, 30, { a: st.qmark * .55, size: 150, w: 200, align: 'center', col: COL.coral });
-    ctx.restore();
-    drawDishRim(DX.A, DY, DR, { a, hl: st.aHL, hlCol: COL.coral });
-    txt('Astrocytes', DX.A, DY + DR + 40, { a, size: 24, w: 600, align: 'center' });
-    txt(st.aSub, DX.A, DY + DR + 66, { a: a * (st.aSub ? 1 : 0) * (1 - byp), size: 17, align: 'center', col: st.aSub.startsWith('A1') ? COL.coral : COL.dim });
-    if (byp > 0) txt('bypassed', DX.A, DY + DR + 66, { a: a * byp, size: 17, align: 'center', col: GRAYP.rim });
+    dish(DX.A, DR, a, () => {
+      st.a.layers.forEach(ly => {
+        const la = ly.a ?? 1; if (la <= .004) return;
+        AST.forEach(c => c.draw(ctx, { t: gt, r: ly.r, a: la }));
+        for (const f of ly.fields) f.f.draw(ctx, gt, { ...gO(f.o), a: (f.o.a ?? 1) * la });
+      });
+    }, { hl: st.aHL || 0, hlCol: COL.coral });
+    name('Astrocytes', DX.A, a);
   }
   // --- RGC dish / dose wells
   {
-    const a = dA('N');
-    const wa = st.wells ? st.wells.a : 0;
-    const L = st.n.layers, dishA = a * Math.max(1 - wa, ...L.map(l => l.a ?? 1)) ;
-    drawDish(DX.N, DY, DR, { a: a * (1 - wa) });
-    ctx.save(); clipCircle(DX.N, DY, DR - 4); ctx.translate(DX.N, DY); ctx.globalAlpha *= a;
-    L.forEach((ly, i) => {
-      const la = ly.a ?? 1; if (la <= .004) return;
-      RGC.forEach(c => c.draw(ctx, { t: gt, d: ly.d, a: la }));
-      for (const f of ly.fields) f.f.draw(ctx, gt, { ...f.o, a: (f.o.a ?? 1) * la });
+    const a = dA('N'), wa = st.wells ? st.wells.a : 0;
+    dish(DX.N, DR, a * (1 - wa), () => {
+      st.n.layers.forEach(ly => {
+        const la = ly.a ?? 1; if (la <= .004) return;
+        RGC.forEach(c => c.draw(ctx, { t: gt, d: ly.d, a: la }));
+        for (const f of ly.fields) f.f.draw(ctx, gt, { ...gO(f.o), a: (f.o.a ?? 1) * la });
+      });
     });
-    ctx.restore();
-    drawDishRim(DX.N, DY, DR, { a: a * (1 - wa) });
     if (wa > 0) drawWells(st.wells.t, gt, wa);
-    txt('Retinal ganglion cells', DX.N, DY + DR + 40, { a: a * (1 - wa), size: 24, w: 600, align: 'center' });
-    txt(st.nSub, DX.N, DY + DR + 66, { a: a * (1 - wa) * (st.nSub ? 1 : 0), size: 17, align: 'center', col: st.nSub === 'survive' ? COL.teal : COL.dim });
-    if (st.casp) { txt('caspase-2/3 → apoptosis', DX.N, DY + DR + 94, { a: st.casp * (1 - wa), size: 16, align: 'center', col: UI.caspText }); }
+    name('Retinal ganglion cells', DX.N, a * (1 - wa));
   }
-  // --- AQP4 inset (in vivo, Ext. Data Fig. 5a)
-  if (SHOW_AQP4_INSET && st.inset && st.inset.a > 0) drawAQP4(1260, 440, 94, st.inset.r, st.inset.a, gt);
   // --- tubes, well, filter
-  for (const tb of st.tubes) drawTube(tb.p.x, tb.p.y, { a: tb.a, label: tb.label, label2: tb.label2, dots: tb.dots, liq: tb.liq });
+  for (const tb of st.tubes) drawTube(tb.p.x, tb.p.y, { a: tb.a, label: tb.label, lsz: tb.lsz, label2: tb.label2, dots: tb.dots, liq: tb.liq, s: tb.s });
   if (st.well && st.well.a > 0) drawNabWell(POS.well.x, POS.well.y, 74, t, gt, st.well);
   if (st.filter && st.filter.a > 0) drawFilter(POS.filt.x, POS.filt.y, st.filter, gt);
+  for (const ar of st.arrows || []) staticArrow(ar.x0, ar.y, ar.x1, ar.y, ar.a);
   // --- clock
-  if (st.clock) { const d = DX[st.clock.d]; drawClock(d + DR * .8, DY - DR * .92, st.clock.p, st.clock.a); }
-  // --- results panel (step 15 animates it itself)
-  if (!RELAY_SKIP.ledger) drawLedger(s, t, gt, st);
-  // --- pipettes (drawn in full; headings and legend keep a halo so they stay legible on top)
+  if (st.clock) { const d = DX[st.clock.d]; drawClock(d + DR * .84, FY - rWall(DR) - rRy(DR) - 6, st.clock.p, st.clock.a); }
+  // --- results table (step 15 animates it itself)
+  if (!RELAY_SKIP.ledger) drawFlow(flowProg(s, t, st), 1);
+  // --- pipettes
   for (const h of st.hops) {
     const p = hopPose(t - h.t0, h.src, h.dst, h.sp); if (!p) continue;
     drawPipette(p.x, p.y, p.fill, h.liq, h.dots, 1, p.low);
   }
   vignette();
-  // --- legend + captions
   drawLegend(st);
   if (RELAY_SKIP.caps) return;
   st.caps.forEach(c => caption(c[0], c[1]));
   if (st.sub) subcap(st.sub[0], st.sub[1]);
 }
-// key: fixed, right-aligned 3 × 2 grid level with the heading; items fade in where they will stay
-const LEGEND = [['il1', 'IL-1α'], ['tnf', 'TNF'], ['c1q', 'C1q'], ['other', 'other secreted'], ['ab', 'neutralizing Ab'], ['tox', 'unknown factor']];
+// legend: an entry exists only from the moment its glyph first appears; the strip re-centres smoothly as entries come and go
+const LEGEND = [
+  { g: 'sec', label: 'secreted factors', v: st => st.leg.sec },
+  { g: 'il1', label: 'IL-1α', v: st => st.leg.names }, { g: 'tnf', label: 'TNF', v: st => st.leg.names }, { g: 'c1q', label: 'C1q', v: st => st.leg.names },
+  { g: 'other', label: 'other secreted', v: st => st.leg.names },
+  { g: 'ab', label: 'neutralizing Ab', v: st => st.legendAb || 0 }, { g: 'tox', label: 'unknown factor', v: st => st.legendTox || 0 },
+];
+const LEGEND_Y = 655;                     // halfway between the dish names and the top of the flowchart
 function drawLegend(st) {
-  const a = st.legend; if (!a || a <= .004) return;
-  const show = [1, 1, 1, 1, st.legendAb || 0, st.legendTox || 0];
-  ctx.font = `500 18px ${FONT}`;
-  const colW = [0, 1, 2].map(c => 34 + Math.max(ctx.measureText(LEGEND[c][1]).width, ctx.measureText(LEGEND[c + 3][1]).width));
-  const gap = 28, right = 1840, x0 = right - colW.reduce((p, q) => p + q, 0) - 2 * gap;
-  LEGEND.forEach(([g, label], i) => {
-    const col = i % 3, row = (i / 3) | 0, ia = a * show[i]; if (ia <= .004) return;
-    const x = x0 + colW.slice(0, col).reduce((p, q) => p + q, 0) + col * gap, y = 86 + row * 36;
-    glyph(ctx, g, x + 11, y - 6, GSIZE[g] * (g === 'other' ? 1.5 : 1.15), 0, ia);
-    txt(label, x + 30, y, { a: ia, size: 18, col: COL.legend, halo: 6 });
-  });
-}
-function ledgerItem(i, x, y, gt, a, sc = 1) {      // one result: mini dish, treatment, outcome
-  const cd = CARDS[i], good = cd.res === 'No change' || cd.res === 'Survival';
-  miniDish(x, y, cd, gt, a, LEDGER.r * sc);
-  cd.l.forEach((line, j) => txt(line, x, y + 46 * sc + j * 18 * sc, { a, size: 15 * sc, align: 'center', col: COL.text }));
-  txt(cd.res, x, y + (46 + 18 * cd.l.length + 8) * sc, { a, size: 16 * sc, w: 700, align: 'center', col: good ? COL.teal : COL.coral });
-}
-function drawLedgerFrame(a, groupA = [1, 1]) {
-  LEDGER.groups.forEach(([name, i0, i1], g) => {
-    const ga = a * groupA[g]; if (ga <= .004) return;
-    const x0 = cardX(i0) - 90, x1 = cardX(i1) + 90, y = LEDGER.y - 52;
-    txt(name.toUpperCase(), x0, y, { a: ga, size: 13, w: 600, ls: 1.6, col: COL.dim });
-    ctx.save(); ctx.globalAlpha *= ga; ctx.fillStyle = fg(.14 * UI.rimA); ctx.fillRect(x0, y + 9, x1 - x0, 1); ctx.restore();
-  });
-}
-function drawLedger(s, t, gt, st) {
-  const shown = CARDS.filter(c => c.step < s).length;     // cards are ordered by step
-  const flyOf = i => st.cards.find(c => c.i === i && t > c.tf);
-  drawLedgerFrame(1);
-  CARDS.forEach((cd, i) => {
-    const x = cardX(i), f = flyOf(i);
-    const vis = i < shown ? 1 : f ? seg(t, f.tf + .7, f.tf + 1.1) : 0;
-    if (vis < 1) { ctx.save(); ctx.globalAlpha *= 1 - vis; ctx.setLineDash([3, 4]); ctx.strokeStyle = fg(.16 * UI.rimA); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, LEDGER.y, LEDGER.r, 0, TAU); ctx.stroke(); ctx.restore(); }
-    if (vis > 0) ledgerItem(i, x, LEDGER.y, gt, vis);
-  });
-  for (const fl of st.cards) {      // result dish flies down into its slot
-    const u = ease(seg(t, fl.tf, fl.tf + .9)); if (u <= 0 || u >= 1) continue;
-    const cd = CARDS[fl.i], src = cd.k === 'a' ? DX.A : DX.N;
-    const x = lerp(src, cardX(fl.i), u), y = lerp(DY, LEDGER.y, u) - Math.sin(u * Math.PI) * 40, r = lerp(DR, LEDGER.r, u);
-    ctx.save(); ctx.globalAlpha *= .95 * (1 - seg(u, .85, 1)); drawDish(x, y, r);
-    ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / DR, r / DR);
-    if (cd.k === 'a') AST.forEach(c => c.draw(ctx, { t: gt, r: cd.r })); else RGC.forEach(c => c.draw(ctx, { t: gt, d: cd.d, noPuncta: true }));
-    ctx.restore(); drawDishRim(x, y, r); ctx.restore();
+  ctx.font = `500 27px ${FONT}`;
+  const gap = 44, items = LEGEND.map(l => ({ l, v: l.v(st), iw: l.g === 'sec' ? 92 : 50 }));
+  items.forEach(it => it.w = it.iw + ctx.measureText(it.l.label).width);
+  const total = items.reduce((p, it) => p + (it.w + gap) * it.v, 0) - gap * Math.max(...items.map(it => it.v), 0);
+  let x = 960 - total / 2;
+  for (const it of items) {
+    if (it.v <= .004) continue;
+    const g = it.l.g, y = LEGEND_Y;
+    if (g === 'sec') [['il1', 12, -12], ['tnf', 46, -2], ['c1q', 76, -12], ['other', 28, 8]].forEach(([q, dx, dy]) => glyph(ctx, q, x + dx, y - 8 + dy, GSIZE[q] * (q === 'other' ? 2.4 : 1.8), 0, it.v));
+    else glyph(ctx, g, x + 18, y - 9, GSIZE[g] * (g === 'other' ? 2.8 : 2.2), 0, it.v);
+    txt(it.l.label, x + it.iw, y, { a: it.v, size: 27, col: COL.legend, halo: 6 });
+    x += (it.w + gap) * it.v;
   }
 }
-function miniDish(x, y, cd, gt, a, r = 36) {
-  ctx.save(); ctx.globalAlpha *= a; drawDish(x, y, r);
-  ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y); ctx.scale(r / 36, r / 36);
-  if (cd.k === 'a') MINI_A.draw(ctx, { t: gt, r: cd.r }); else MINI_N.draw(ctx, { t: gt, d: cd.d, noPuncta: true });
-  ctx.restore(); drawDishRim(x, y, r); ctx.restore();
+// ---- flowchart under the dishes: builds step by step, one idea per addition ----
+// main lane: LPS → Microglia → secreted factors → Astrocytes → (unknown factor) → RGCs.
+// lower lane: every treatment applied straight to a dish, pointing at it, with its result underneath.
+const FLY = { A: 748, B: 852, bus: 802 };
+const FLOW = {
+  nodes: { LPS: ['LPS', 150, 2], MG: ['Microglia', 430, 2], SEC: ['secreted factors', 790, 2], AST: ['Astrocytes', 1150, 1], RGC: ['RGCs', 1650, 5] },
+  chips: {
+    LPSd: ['LPS directly', 140, 1, 'No change', 'AST'], RM: ['Resting medium', 395, 2, 'No change', 'AST'], NAB: ['Activated medium + nAbs', 705, 4, 'No change', 'AST'],
+    CK: ['IL-1α + TNF + C1q', 1030, 3, 'A1', 'AST'], AMM: ['Activated medium', 1385, 7, 'Survival', 'RGC'], CK2: ['IL-1α + TNF + C1q', 1705, 7, 'Survival', 'RGC'],
+  },
+  edges: { e_LPS_MG: ['LPS', 'MG', 2], e_MG_SEC: ['MG', 'SEC', 2], e_SEC_AST: ['SEC', 'AST', 2], e_AST_RGC: ['AST', 'RGC', 5] },
+  badges: { b_AST: ['A1', 'AST', 2], b_RGC: ['Death', 'RGC', 5] },
+};
+// progress of element id, phase j (0 appear · 1 arrow · 2 result), within step k at time t
+function flowProg(k, t, st) {
+  const stepOf = id => (FLOW.nodes[id] || FLOW.chips[id] || FLOW.edges[id] || FLOW.badges[id])[2];
+  return (id, j = 0, dur = .5) => {
+    const S = stepOf(id); if (k > S) return 1; if (k < S) return 0;
+    const T = st.fl && st.fl[id]; return T && T[j] !== undefined ? seg(t, T[j], T[j] + dur) : 0;
+  };
+}
+const flowFont = sz => `${sz === 26 ? 600 : 500} ${sz}px ${FONT}`;
+function flowBox(label, x, y, a, sz, strong, col, k = 0) {      // col, k: outline colour and how far it has taken over from neutral
+  ctx.font = flowFont(sz); const w = ctx.measureText(label).width + 40, h = 50;
+  ctx.save(); ctx.globalAlpha *= a; rr(x - w / 2, y - h / 2, w, h, 12);
+  ctx.fillStyle = rgb(COL.bg); ctx.fill();
+  ctx.strokeStyle = k > 0 ? rgb(mix(mix(COL.bg, COL.text, strong ? .5 : .3), col, k)) : fg(strong ? .5 : .3); ctx.lineWidth = (strong ? 2.4 : 2) + 1.6 * k; ctx.stroke(); ctx.restore();
+  txt(label, x, y + sz * .35, { a, size: sz, w: strong ? 600 : 500, align: 'center', col: COL.text });
+  return w;
+}
+function flowArrow(x0, y0, x1, y1, p, o = {}) {       // o.col, o.blocked (dashed, grey, with a cross once complete)
+  if (p <= .004) return;
+  const col = o.blocked ? GRAYP.rim : (o.col || fg(.6)), q = ease(p), ex = lerp(x0, x1, q), ey = lerp(y0, y1, q);
+  ctx.save(); ctx.strokeStyle = typeof col === 'string' ? col : rgb(col); ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  if (o.blocked) ctx.setLineDash([8, 7]);
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+  if (p >= .98) {
+    const an = Math.atan2(y1 - y0, x1 - x0);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - Math.cos(an - .45) * 15, y1 - Math.sin(an - .45) * 15); ctx.lineTo(x1 - Math.cos(an + .45) * 15, y1 - Math.sin(an + .45) * 15); ctx.closePath(); ctx.fill();
+    if (o.blocked) { const mx = (x0 + x1) / 2, my = (y0 + y1) / 2; ctx.setLineDash([]); ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(mx - 9, my - 9); ctx.lineTo(mx + 9, my + 9); ctx.moveTo(mx + 9, my - 9); ctx.lineTo(mx - 9, my + 9); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+function staticArrow(x0, y, x1, _y, a) {               // a plain arrow that just fades in (steps with no pipette)
+  if (a <= .004) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = fg(.65); ctx.fillStyle = fg(.65); ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1 - 6, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 - 16, y - 9); ctx.lineTo(x1 - 16, y + 9); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function drawFlow(P, am) {
+  const W_ = {};      // node half widths for arrow endpoints
+  for (const [id, [l, x]] of Object.entries(FLOW.nodes)) {
+    const a = P(id) * am; ctx.font = flowFont(26); W_[id] = ctx.measureText(l).width / 2 + 20;
+    const k = id === 'SEC' ? 1 : id === 'AST' ? P('b_AST', 0, .5) : id === 'RGC' ? P('b_RGC', 0, .5) : 0;
+    if (a > .004) flowBox(l, x, FLY.A, a, 26, true, COL.coral, k);
+  }
+  const nx = id => FLOW.nodes[id][1];
+  for (const [id, [f, t_]] of Object.entries(FLOW.edges)) {
+    const p = P(id, 0, .6) * am; if (p <= .004) continue;
+    const bad = id === 'e_SEC_AST' || id === 'e_AST_RGC';
+    flowArrow(nx(f) + W_[f] + 8, FLY.A, nx(t_) - W_[t_] - 10, FLY.A, p, { col: bad ? COL.coral : null });
+    if (id === 'e_AST_RGC') flowBox('unknown factor', (nx(f) + nx(t_)) / 2, FLY.A, p, 24, false, COL.coral, 1);
+  }
+  // lower lane: treatments applied straight to a dish feed one bus per target; the result sits under each chip
+  const busCol = rgb(mix(COL.bg, COL.text, .42)), junction = {};
+  for (const [id, [l, x, , res, tgt]] of Object.entries(FLOW.chips)) {
+    const a = P(id, 0, .5) * am; if (a <= .004) continue;
+    const jx = nx(tgt), p = P(id, 1, .6) * am;
+    ctx.save(); ctx.strokeStyle = busCol; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (p > .004) {
+      const q = ease(p), yb = FLY.bus;       // stub up from the chip, then along the bus to the target's column
+      ctx.beginPath(); ctx.moveTo(x, FLY.B - 25); ctx.lineTo(x, lerp(FLY.B - 25, yb, Math.min(1, q * 2)));
+      if (q > .5) { ctx.lineTo(lerp(x, jx, (q - .5) * 2), yb); } ctx.stroke();
+      if (q >= .999) junction[tgt] = true;
+    }
+    ctx.restore();
+    const ra = P(id, 2, .4), good = res === 'No change' || res === 'Survival';
+    flowBox(l, x, FLY.B, a, 24, false, good ? COL.teal : COL.coral, ra);
+  }
+  for (const tgt of Object.keys(junction)) {          // the bus rises into its target with an arrowhead
+    const x = nx(tgt), y0 = FLY.bus, y1 = FLY.A + 27;
+    ctx.save(); ctx.strokeStyle = busCol; ctx.fillStyle = busCol; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1 + 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x - 9, y1 + 15); ctx.lineTo(x + 9, y1 + 15); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  // the result: the chip's path is drawn out again in green (nothing happens) or red (A1 / death), chip to target
+  for (const [id, [, x, , res, tgt]] of Object.entries(FLOW.chips)) {
+    const p = P(id, 2, .9) * am; if (p <= .004) continue;
+    const col = rgb(res === 'No change' || res === 'Survival' ? COL.teal : COL.coral), jx = nx(tgt), y1 = FLY.A + 27;
+    const pts = [[x, FLY.B - 25], [x, FLY.bus], [jx, FLY.bus], [jx, y1 + 6]], lens = [];
+    let tot = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); lens.push(d); tot += d; }
+    let left = ease(p) * tot;
+    ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length && left > 0; i++) { const f = Math.min(1, left / Math.max(lens[i - 1], 1e-6)); ctx.lineTo(lerp(pts[i - 1][0], pts[i][0], f), lerp(pts[i - 1][1], pts[i][1], f)); left -= lens[i - 1]; }
+    ctx.stroke();
+    if (p >= .995) { ctx.beginPath(); ctx.moveTo(jx, y1); ctx.lineTo(jx - 10, y1 + 16); ctx.lineTo(jx + 10, y1 + 16); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+  }
+}
+function pill(x, y, res, a, center) {
+  if (a <= .004) return;
+  const good = res === 'No change' || res === 'Survival', col = good ? COL.teal : COL.coral;
+  ctx.save(); ctx.globalAlpha *= a; ctx.font = `700 24px ${FONT}`;
+  const w = ctx.measureText(res).width + 36, h = 34, px = center ? x - w / 2 : x;
+  rr(px, y - h + 8, w, h, h / 2);
+  if (good) { ctx.fillStyle = rgb(COL.bg); ctx.fill(); ctx.strokeStyle = rgb(col); ctx.lineWidth = 2.4; ctx.stroke(); } else { ctx.fillStyle = rgb(col); ctx.fill(); }
+  ctx.restore();
+  txt(res, px + w / 2, y, { a, size: 24, w: 700, align: 'center', col: good ? col : [255, 255, 255] });
 }
 function drawWells(t, gt, a) {
-  const offs = [[-98, -98], [98, -98], [-98, 98], [98, 98]], wr = 90;
-  offs.forEach((o, w) => {
-    const x = DX.N + o[0], y = DY + o[1];
-    ctx.save(); ctx.globalAlpha *= a;
-    drawDish(x, y, wr);
-    ctx.save(); clipCircle(x, y, wr - 3); ctx.translate(x, y);
-    WELLS[w].forEach(q => q.c.draw(ctx, { t: gt, d: q.dies ? ease(seg(t, 1.3 + q.st * 1.5, 4.8 + q.st * 1.5)) : 0, noPuncta: true }));
-    ctx.restore(); drawDishRim(x, y, wr);
-    ctx.restore();
+  // four dose wells in one row where the RGC dish was: dose above, survival printed plainly underneath
+  const wr = 72, ry = rRy(wr), Hw = rWall(wr), fy = FY, sc = seg(t, 5.5, 6.3) * a;
+  [0, 1, 2, 3].forEach(w => {
+    const x = 1320 + w * 160;
+    tiltDish(x, fy - Hw, wr, RT, a, UI.dish, () => {
+      ctx.scale(wr / 90, wr / 90);
+      WELLS[w].forEach(q => q.c.draw(ctx, { t: gt, d: q.dies ? ease(seg(t, 1.3 + q.st * 1.5, 4.8 + q.st * 1.5)) : 0, noPuncta: true }));
+    });
     const D = DOSES[w];
-    txt(D.d + ' µg/ml', x, y - wr - 10, { a: a * (w < 2 ? 1 : 0), size: 15, w: 600, align: 'center' });
-    if (w >= 2) txt(D.d + ' µg/ml', x, y + wr + 22, { a, size: 15, w: 600, align: 'center' });
-    const sc = seg(t, 5.5, 6.3) * a;
-    ctx.save(); ctx.globalAlpha *= sc; ctx.fillStyle = rgb(UI.pill, UI.pillA); rr(x - 36, y - 15, 72, 30, 8); ctx.fill(); ctx.restore();
-    txt(D.s, x, y + 7, { a: sc, size: 19, w: 600, align: 'center', col: D.n > 15 ? COL.teal : D.n > 5 ? UI.midSurv : COL.coral });
+    txt(D.d + ' µg/ml', x, fy - Hw - ry - 14, { a, size: 24, w: 600, align: 'center' });
+    txt(D.s, x, fy + ry + 46, { a: sc, size: 34, w: 700, align: 'center', col: D.n > 15 ? COL.teal : D.n > 5 ? UI.midSurv : COL.coral });
   });
 }
 function drawAQP4(x, y, r, rr_, a, gt) {
@@ -419,8 +491,7 @@ function drawAQP4(x, y, r, rr_, a, gt) {
 function drawNabWell(x, y, r, t, gt, W_) {
   const a = W_.a;
   ctx.save(); ctx.globalAlpha *= a;
-  drawDish(x, y, r, { tint: UI.dish });
-  ctx.save(); clipCircle(x, y, r - 3); ctx.translate(x, y);
+  tiltDish(x, y - rWall(r), r, RT, 1, UI.dish, () => {
   const f = F.well, o = { t0: W_.td, origin: () => [0, -18], stag: .4, wander: .6 };
   const cyt = f.ps.filter(p => p.type !== 'other');
   for (const p of f.ps) {
@@ -438,8 +509,9 @@ function drawNabWell(x, y, r, t, gt, W_) {
     glyph(ctx, bnd > .5 ? p.type + 'b' : p.type, q[0], q[1], GSIZE[p.type] * p.sz * .9, p.rot, q[2]);
     if (abPos && bnd <= .5) { ctx.save(); ctx.translate(abPos[0], abPos[1]); gAb(ctx, 15, 1); ctx.restore(); }
   }
-  ctx.restore(); drawDishRim(x, y, r); ctx.restore();
-  txt('+ anti-IL-1α / TNF / C1q', x, y + r + 22, { a: a * seg(t, W_.tb - .4, W_.tb + .3), size: 15, align: 'center', col: COL.legend });
+  });
+  ctx.restore();
+  txt('+ anti-IL-1α / TNF / C1q', x, y - rWall(r) - rRy(r) - 16, { a: a * seg(t, W_.tb - .4, W_.tb + .3), size: 22, align: 'center', col: COL.legend });
 }
 function drawFilter(x, y, F_, gt) {
   const a = F_.a; if (a <= .004) return;
@@ -469,8 +541,5 @@ function drawFilter(x, y, F_, gt) {
     for (let j = 0; j < 2; j++) { const u = (gt * .38 + j * .5) % 1; if (u < .6) { const v = u / .6; glyph(ctx, 'il1', j ? 7 : -8, lerp(mem - 22, mem + 30, v), 7, gt * .8 + j, F_.spin * Math.sin(v * Math.PI)); } } }
   ctx.setLineDash([3, 2]); ctx.strokeStyle = fg(.85); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-wi, mem); ctx.lineTo(wi, mem); ctx.stroke(); ctx.setLineDash([]);
   ctx.restore();
-  txt('30 kDa', x - w - 10, y + mem + 5, { a, size: 14, align: 'right', col: COL.legend });
   if (F_.spin > 0) { ctx.save(); ctx.globalAlpha *= a * F_.spin; ctx.translate(x + w + 26, y - 10); ctx.rotate(gt * 6); ctx.strokeStyle = fg(.8); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 4.6); ctx.stroke(); ctx.fillStyle = fg(.8); ctx.beginPath(); ctx.moveTo(11 * Math.cos(4.6) + 4, 11 * Math.sin(4.6) + 4); ctx.lineTo(11 * Math.cos(4.6) - 5, 11 * Math.sin(4.6) + 1); ctx.lineTo(11 * Math.cos(4.6) + 1, 11 * Math.sin(4.6) - 6); ctx.fill(); ctx.restore(); }
-  txt('30–50×', x, y + bot + 30, { a: a * F_.lab, size: 22, w: 600, align: 'center', col: COL.coral });
-  txt('concentrated', x, y + bot + 50, { a: a * F_.lab, size: 13, align: 'center', col: COL.dim });
 }

@@ -5,8 +5,11 @@
                         R = replay step   F = fullscreen
                         L = toggle light/dark   P = play/pause   URL hash #12 jumps to step 12
    ===================================================================== */
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-const RENDER_MODE = new URLSearchParams(location.search).has('render');   // tools/*.mjs: no HUD, exact 1920×1080
+const cv = document.getElementById('c'); let ctx = cv.getContext('2d');   // ctx is swapped for an offscreen layer while a scene transition is composed
+const RENDER_MODE = new URLSearchParams(location.search).has('render');   // tools/*.mjs: no HUD, exact 1920×1080, no titles / footer
+// Video clips are a horizontal band of the 1920×1080 stage (titles are set on the slide, so top and bottom are trimmed).
+// Every scene keeps its content inside this band; the same band is used for every clip so consecutive clips line up.
+const CROP = { y: 160, h: 768 };
 let SCL = 1, DPR = 1;
 function resize() {
   DPR = RENDER_MODE ? 1 : Math.min(2, window.devicePixelRatio || 1);
@@ -24,18 +27,20 @@ addEventListener('resize', resize); resize();
    sc = scene (drives fades / dot separators), k = index inside that scene's function.
    dur = seconds until the step has settled + 0.5 s (one video clip); busy = a crowded moment, for review.
    joins = opens on the previous step's last frame (no scene fade, previous heading fades out).
+   morph = the step itself carries the previous step's last frame into its own (no generic cross-fade).
+   t0 = first frame of the video clip (default 0); video:false = no clip (step 1 is a still).
    Copy (cap / capEnd / sub) and the footer citation (cite) come from SCRIPT.md.
    ===================================================================== */
 const STEPS = [
-  { sc: 1, k: 0, slug: 'tissue', dur: 2.5, busy: 3.0 },   // no on-screen title: narration carries steps 1-2
-  { sc: 1, k: 1, slug: 'who-caused-it', dur: 5.5, busy: 2.5 },
-  { sc: 2, k: 0, slug: 'immunopanning', joins: true, dur: 23.1, busy: 2.6, cap: 'Cell-type purification by immunopanning', sub: 'P5 cortex · papain dissociation · sequential panning plates',
+  { sc: 1, k: 0, slug: 'tissue', video: false, dur: 2.5, busy: 3.0 },   // no on-screen title: narration carries steps 1-2
+  { sc: 1, k: 1, slug: 'who-caused-it', t0: 1.4, dur: 5.5, busy: 2.5 },   // clip opens already blurred (focus is complete at 1.4 s)
+  { sc: 2, k: 0, slug: 'immunopanning', joins: true, dur: 14.7, busy: 2.6, cap: 'Cell-type purification by immunopanning', sub: 'P5 cortex · papain dissociation · sequential panning plates',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2a)' },
   { sc: 2, k: 1, slug: 'three-cultures', dur: 5.5, busy: 2.0, cap: 'Purified primary cultures', sub: 'astrocytes and RGCs >99% pure',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2b)' },
-  { sc: 3, k: 0, slug: 'serum-free', dur: 9.5, busy: 6.8, cap: 'Serum-free culture preserves a resting baseline', sub: 'serum components alone induce astrocyte reactivity',
+  { sc: 3, k: 0, slug: 'serum-free', morph: true, dur: 10.7, busy: 6.8, cap: 'Serum-free culture preserves a resting baseline', sub: 'serum components alone induce astrocyte reactivity',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Extended Data Fig. 2c)' },
-  { sc: 5, k: 0, slug: 'readout-primer', dur: 4.9, busy: 3.0, cap: 'Readout: reactive-astrocyte transcript panel', sub: 'microfluidic qPCR · reference A1 and A2 profiles',
+  { sc: 5, k: 0, slug: 'readout-primer', dur: 14.8, busy: 3.0, cap: 'Readout: reactive-astrocyte transcript panel', sub: 'microfluidic qPCR · reference A1 and A2 profiles',
     cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a); gene sets from Zamanian et al., 2012' },
   { sc: 4, k: 0, slug: 'relay-intro', dur: 3.1, busy: 1.2, cap: 'Conditioned-medium transfer between purified cultures',
     cite: 'Adapted from Liddelow et al., 2017' },
@@ -47,7 +52,7 @@ const STEPS = [
     cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a to c; Extended Data Fig. 3d)' },
   { sc: 4, k: 4, slug: 'neutralize', dur: 17.9, busy: 9.5, cap: 'IL-1α, TNF and C1q are necessary', sub: 'neutralizing antibodies block induction by activated-microglia medium',
     cite: 'Adapted from Liddelow et al., 2017 (Fig. 1a; Extended Data Fig. 3e)' },
-  { sc: 4, k: 5, slug: 'acm-to-rgcs', dur: 17.4, busy: 10.8, cap: 'A1 astrocyte-conditioned medium on purified RGCs',
+  { sc: 4, k: 5, slug: 'acm-to-rgcs', dur: 7.2, busy: 10.8, cap: 'A1 astrocyte-conditioned medium on purified RGCs',
     cite: 'Adapted from Liddelow et al., 2017 (Methods; Fig. 4a)' },
   { sc: 4, k: 6, slug: 'dose', dur: 6.8, busy: 3.5, cap: 'Dose-dependent RGC death at 24 h',
     cite: 'Adapted from Liddelow et al., 2017 (Fig. 4a, c; Extended Data Fig. 7)' },
@@ -67,11 +72,13 @@ function edgeShade() {
   const L = THEME.light;
   if (!EDG || EDG.light !== L) {
     const E = L ? '255,255,255' : '0,0,0', k = 1;
-    const g = ctx.createLinearGradient(0, 0, 0, 210); g.addColorStop(0, `rgba(${E},${.86 * k})`); g.addColorStop(.55, `rgba(${E},${.5 * k})`); g.addColorStop(1, `rgba(${E},0)`);
+    // top: white that deepens toward the top of the clip band (CROP), so the tissue melts into the slide
+    const top = CROP.y + 230, p = CROP.y / top, g = ctx.createLinearGradient(0, 0, 0, top);
+    g.addColorStop(0, `rgba(${E},1)`); g.addColorStop(p, `rgba(${E},.96)`); g.addColorStop(p + (1 - p) * .35, `rgba(${E},.62)`); g.addColorStop(p + (1 - p) * .7, `rgba(${E},.22)`); g.addColorStop(1, `rgba(${E},0)`);
     const g2 = ctx.createLinearGradient(0, 950, 0, 1080); g2.addColorStop(0, `rgba(${E},0)`); g2.addColorStop(.6, `rgba(${E},${.75 * k})`); g2.addColorStop(1, `rgba(${E},${.92 * k})`);
     EDG = [g, g2]; EDG.light = L;
   }
-  ctx.fillStyle = EDG[0]; ctx.fillRect(0, 0, W, 210); ctx.fillStyle = EDG[1]; ctx.fillRect(0, 950, W, 130);
+  ctx.fillStyle = EDG[0]; ctx.fillRect(0, 0, W, CROP.y + 230); ctx.fillStyle = EDG[1]; ctx.fillRect(0, 950, W, 130);
 }
 function vignette() {
   if (THEME.light) return;
@@ -109,18 +116,45 @@ function carryCaption(k, t) {
   if (pc && pc !== S.cap) caption(pc, a);
   if (P.sub && !P.capEnd && P.sub !== S.sub) subcap(P.sub, a);
 }
-function render(k, t, gt) {
+// the previous step's final frame, drawn as an opaque layer at alpha a: lets a new scene open on the
+// exact last frame of the clip before it and dissolve from there
+let XLAYER = null;
+function previousFinal(k, gt, a) {
+  const P = STEPS[k - 1], saved = [prevStep, prevT];
+  if (!XLAYER) { XLAYER = document.createElement('canvas'); }
+  if (XLAYER.width !== cv.width || XLAYER.height !== cv.height) { XLAYER.width = cv.width; XLAYER.height = cv.height; }
+  const main = ctx; ctx = XLAYER.getContext('2d');
+  prevStep = k - 2; prevT = k >= 2 ? STEPS[k - 2].dur : 0;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, XLAYER.width, XLAYER.height);
+  paintStep(k - 1, P.dur, gt);
+  [prevStep, prevT] = saved; ctx = main;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = a; ctx.drawImage(XLAYER, 0, 0); ctx.restore();
+}
+function paintStep(k, t, gt) {
   ctx.setTransform(SCL * DPR, 0, 0, SCL * DPR, 0, 0);
-  applyTheme();
   ctx.fillStyle = rgb(COL.bg); ctx.fillRect(0, 0, W, H);
-  const S = STEPS[k], sc = S.sc;
-  ctx.save(); SCENES[sc](S.k, t, gt, S); ctx.restore();
+  const S = STEPS[k];
+  ctx.save(); SCENES[S.sc](S.k, t, gt, S); ctx.restore();
   carryCaption(k, t);
-  // scene fade (from the page colour) when entering a new scene
+  if (!RENDER_MODE) txt(S.cite || '', 64, 1052, { size: 15, col: COL.foot });   // per-step citation
+}
+function render(k, t, gt) {
+  applyTheme();
+  paintStep(k, t, gt);
+  const S = STEPS[k], sc = S.sc;
+  // Renders: every clip opens on the previous clip's last frame and dissolves from there (a step whose own code
+  // already carries the previous frame, joins / morph, is left alone). Live: entering a scene fades up from the page colour.
+  const consecutive = k > 0 && prevStep === k - 1, carried = consecutive && (S.joins || S.morph);
   const enteredScene = prevStep < 0 || STEPS[prevStep].sc !== sc;
-  // joins: the step continues the previous step's last frame, so no fade
-  if (enteredScene && !(S.joins && prevStep === k - 1)) { const f = 1 - seg(t, 0, .8); if (f > 0) { ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); } }
-  txt(S.cite || '', 64, 1052, { size: 15, col: COL.foot });   // per-step citation
+  if (RENDER_MODE) {
+    if (consecutive && !carried) {
+      const f = 1 - seg(t, 0, enteredScene ? .8 : .6);
+      if (f > 0) { ctx.setTransform(SCL * DPR, 0, 0, SCL * DPR, 0, 0); previousFinal(k, gt, f); }
+    }
+  } else if (enteredScene && !carried) {
+    const f = 1 - seg(t, 0, .8);
+    if (f > 0) { ctx.setTransform(SCL * DPR, 0, 0, SCL * DPR, 0, 0); ctx.fillStyle = rgb(COL.bg, f); ctx.fillRect(0, 0, W, H); }
+  }
 }
 
 /* ---------------- playback: play / pause / scrub ----------------
@@ -164,6 +198,7 @@ function frame(now) {
 const gtBase = k => 50 + STEPS.slice(0, k).reduce((s, x) => s + (x.dur || 0), 0);
 window.__seek = (k, t, gt, prev, pt) => { frozen = true; step = k; prevStep = prev ?? k; prevT = pt ?? 99; render(k, t, gt ?? (gtBase(k) + t)); };
 window.__anim = {
-  steps: () => STEPS.map((s, i) => ({ i, sc: s.sc, slug: s.slug, dur: s.dur, busy: s.busy, cap: s.cap })),
+  crop: CROP, ready: IMG_READY,
+  steps: () => STEPS.map((s, i) => ({ i, sc: s.sc, slug: s.slug, dur: s.dur, t0: s.t0 || 0, video: s.video !== false, busy: s.busy, cap: s.cap })),
   gtBase, setTheme: m => { setThemeMode(m); onThemeChange(); },
 };

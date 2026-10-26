@@ -25,6 +25,7 @@ const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 page.on('pageerror', e => console.error('page error:', e.message));
 await page.goto(pathToFileURL(path.join(ROOT, 'index.html')).href + '?render=1');
 await page.waitForFunction(() => window.__anim);
+await page.evaluate(() => window.__anim.ready);
 await page.evaluate(m => window.__anim.setTheme(m), arg('theme', 'light'));
 const steps = await page.evaluate(() => window.__anim.steps());
 const ks = parseSteps(arg('steps'), steps.length);
