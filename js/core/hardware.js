@@ -1,7 +1,5 @@
 'use strict';
-/* =====================================================================
-   LAB HARDWARE
-   ===================================================================== */
+// Lab equipment: dishes, pipettes, tubes, clocks, and the arcs pipettes travel along.
 function drawDish(x, y, r, o = {}) {
   const a = o.a ?? 1; if (a <= .004) return;
   ctx.save(); ctx.globalAlpha *= a;

@@ -22,18 +22,22 @@ js/
     glyphs.js            molecule glyphs (IL-1α, TNF, C1q, LPS, antibody, …)
     fields.js            drifting particle fields of glyphs
     hardware.js          dishes, pipettes, tubes, clocks, hop arcs
+    models.js            in vivo panels for step 6 (LPS rat, MCAO brain)
+    assets.js            generated: assets/*.png inlined as data URIs (see tools/embed-assets.mjs)
   scenes/
     actors.js            cell instances shared by scenes 2 & 4
     scene1.js            tissue + the Scene1→2 tissue hand-off
     scene2.js             immunopanning
     scene3.js             serum-free culture
     scene4.js             the microglia/astrocyte/RGC relay
+    fig1a.js             Fig. 1a values read off the published heat map
     scene5.js             heatmap readout
   app.js                 canvas setup, STEPS list, render loop, playback/scrub state
   controls.js            wires the on-screen control bar to app.js
 tools/                 offline renderers (Playwright + ffmpeg); the viewer itself needs none of this
   contact.mjs          contact sheet: busiest beat + final frame per step → out/contact/
   render.mjs           one H.264 clip per step + held last frame → out/video/
+  embed-assets.mjs     re-inlines assets/*.png into js/core/assets.js after an image changes
 ```
 
 ## Editing
@@ -43,7 +47,7 @@ what a step looks like or how long a beat takes, edit the `seg(t, a, b)` / `bump
 calls inside that scene's function — `t` is seconds since the step started.
 
 On-screen copy (caption, optional sub-caption, end caption) lives on each `STEPS` entry in
-`js/app.js` and mirrors `SCRIPT.md`. Keep on-screen text free of em dashes and double hyphens.
+`js/app.js`. Keep on-screen text free of em dashes and double hyphens.
 
 Each `STEPS` entry also has `dur` (seconds until the step has settled, + 0.5 s; one video clip)
 and `busy` (a crowded moment, used by the contact sheet). If you retime a step, update `dur`.

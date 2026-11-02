@@ -1,5 +1,5 @@
 'use strict';
-/* ---------------- cell-type geometry builders ---------------- */
+// Builds the process layout for each cell type (astrocyte, microglia, neuron).
 function addTw(b, R, n, sk) {
   for (let j = 0; j < n; j++) {
     const rA = R() * .12;

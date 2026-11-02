@@ -1,7 +1,5 @@
 'use strict';
-/* =====================================================================
-   SCENE 5 — readout → heatmap
-   ===================================================================== */
+// Scene 5 (steps 6 and 15): the qPCR readout explained, then the full Fig. 1a heat map.
 const GENES = {
   pan: ['Lcn2', 'Steap4', 'S1pr3', 'Timp1', 'Hspb1', 'Cxcl10', 'Cd44', 'Osmr', 'Cp', 'Serpina3n', 'Aspg', 'Vim', 'Gfap'],
   a1: ['H2-T23', 'Serping1', 'H2-D1', 'Ggta1', 'Iigp1', 'Gbp2', 'Fbln5', 'Ugt1a1', 'Fkbp5', 'Psmb8', 'Srgn', 'Amigo2'],
@@ -57,12 +55,11 @@ function faRow(r, a, fill, labA, bold) {
 // scene-4 results that are rows of Fig. 1a: ledger item → row
 const FA_LINK = [[1, 16], [2, 15], [3, 14], [4, 20]];
 
-// ---- step 6: where the two reference rows come from, then what to look at ----
+// Step 6: where the two reference rows come from, then what to look at
 // P6: heatmap geometry for this step (wider than the final figure of step 15): bars at y 620, rows below.
 const P6 = { x0: 128, cw: 38, rh: 34, pitch: 38, bar: 620, barH: 34, top: 752, labX: 128 + 37 * 38 + 16 };
 const p6x = c => P6.x0 + c * P6.cw, P6W = 37 * P6.cw;
-const P6_LPS = 480, P6_MCAO = 1182, P6_PANEL_Y = 362;
-function p6Rows(r, i, fill, a, labA) {           // reference row r drawn in slot i; cells sweep in left → right (as in the first version)
+function p6Rows(r, i, fill, a, labA) {           // reference row r drawn in slot i; cells sweep in left → right
   const y = P6.top + i * P6.pitch; if (fill <= 0) return;
   ctx.save(); ctx.globalAlpha *= a;
   for (let c = 0; c < 37; c++) {

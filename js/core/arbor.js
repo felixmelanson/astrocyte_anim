@@ -1,9 +1,6 @@
 'use strict';
-/* =====================================================================
-   PROCEDURAL ARBOR ENGINE
-   Every process is a Br (branch). Geometry is re-evaluated each frame so
-   processes undulate, extend (sprout) and retract continuously.
-   ===================================================================== */
+// Cell process (branch) geometry. Each process is a Br, recomputed every frame
+// so processes can wave, grow out and retract smoothly.
 class Br {
   constructor(o) {
     this.ang = 0; this.len = 10; this.w0 = 2; this.w1 = 1; this.curv = 0; this.ph = 0; this.freq = .6; this.amp = .1;

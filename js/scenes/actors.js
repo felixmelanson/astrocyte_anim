@@ -1,5 +1,5 @@
 'use strict';
-/* ---------------- Culture cells (shared by Scenes 2 & 4) ---------------- */
+// Cultured cells shared by scene 2 (purified cultures) and scene 4 (the relay).
 const DR = 200, DY = 440, DX = { M: 360, A: 960, N: 1560 };
 const MIC = [[-95, -70], [30, -118], [118, -40], [-18, 10], [-120, 60], [70, 95], [-25, 130]].map((p, i) => new Cell('micro', p[0], p[1], 300 + i * 11, 1.05, { len: 17, drift: 6 }));
 const AST = [[-78, -66], [84, -74], [-72, 84], [92, 78]].map((p, i) => new Cell('astro', p[0], p[1], 410 + i * 23, .98, { drift: 9 }));

@@ -1,5 +1,5 @@
 'use strict';
-/* ---------------- Cell (procedural, animated) ---------------- */
+// Cell: draws one animated cell (soma, processes, and its reactive / dying states).
 let CID = 0;
 class Cell {
   constructor(type, x, y, seed, sc = 1, o = {}) {

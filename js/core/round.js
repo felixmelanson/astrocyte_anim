@@ -1,5 +1,5 @@
 'use strict';
-/* ---------------- dissociated (round) cells ---------------- */
+// Round cells after dissociation, before they are plated.
 const RND = { astro: { R: 9.5, stubs: 4, sw: .24, sa: .32 }, micro: { R: 6.2, stubs: 6, sw: .16, sa: .5 }, oligo: { R: 7.6, stubs: 3, sw: .18, sa: .3 }, neuron: { R: 8.6, stubs: 1, sw: .14, sa: 1.1 }, endo: { R: 8.5, stubs: 0 } };
 class Round {
   constructor(type, seed) {

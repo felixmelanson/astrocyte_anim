@@ -1,8 +1,6 @@
 'use strict';
-/* =====================================================================
-   MODELS — the two in-vivo origin panels of step 6 (flat canvas drawing, plus assets/rat.png for the rat)
-   Every draw function takes (x, y) = centre of the artwork and a = alpha.
-   ===================================================================== */
+// The two in vivo models shown in step 6: LPS-injected rat and MCAO stroke brain.
+// The rat uses assets/rat.png; the rest is drawn directly. (x, y) = centre, a = opacity.
 // rat with a syringe at its flank: systemic LPS. h = height of the rat in px
 function drawLpsRat(x, y, a, h = 285) {
   if (a <= .004) return;

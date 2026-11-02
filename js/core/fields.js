@@ -1,5 +1,5 @@
 'use strict';
-/* ---------------- particle fields (pure functions of time) ---------------- */
+// Clouds of drifting molecules (cytokines, LPS, etc.). Positions depend only on time.
 class Field {
   constructor(seed, spec, rad) {
     const R = rng(seed); this.ps = []; this.rad = rad;

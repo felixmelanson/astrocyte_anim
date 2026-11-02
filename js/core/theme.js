@@ -1,9 +1,7 @@
 'use strict';
-/* =====================================================================
-   PALETTE + THEME
-   resting/healthy = teal family (type-tinted), activated/toxic = coral,
-   blocked/absent = gray dashed, IL-1α amber, TNF violet, C1q chartreuse
-   ===================================================================== */
+// Colours and light/dark theme.
+// Resting/healthy = teal (tinted by cell type), activated/toxic = coral,
+// blocked/absent = dashed gray, IL-1α amber, TNF violet, C1q chartreuse.
 // Two palettes, same semantics. Light colours are darkened / saturated for white:
 // glyphs and cell rims ≥ 3:1 against #fff, text ≥ 4.5:1.
 const PALETTES = {
@@ -66,8 +64,7 @@ const liqC = c => mix(c, [255, 255, 255], UI.liqMix);               // medium co
 // Avenir Next (macOS) to match the slides: Medium 500 for body text, Demi Bold 600 / Bold 700 for headings.
 const FONT = '"Avenir Next","Avenir","Helvetica Neue",Helvetica,Arial,sans-serif';
 
-/* ---------------- text ----------------
-   o.halo: a soft page-coloured outline so text stays legible over cells or hardware */
+// Text drawing. o.halo adds a soft outline so text stays readable over cells.
 function txt(s, x, y, o = {}) {
   const a = o.a ?? 1; if (a <= 0.004 || !s) return;
   ctx.save(); ctx.globalAlpha *= a;

@@ -1,4 +1,4 @@
-// Contact sheet for declutter review.
+// Contact sheet: one still per step, for checking layout.
 //   node contact.mjs [--theme light|dark] [--steps 3,7-9]
 // For every step renders the midpoint of its busiest beat (STEPS[k].busy) and its final frame
 // (STEPS[k].dur) through window.__seek, then writes

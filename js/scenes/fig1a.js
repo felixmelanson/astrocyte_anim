@@ -1,10 +1,7 @@
 'use strict';
-/* =====================================================================
-   FIG. 1a DATA — Liddelow et al., 2017, Nature 541:481
-   Read off the published heat map (600 dpi render of the PDF): each cell is one of the
-   figure's 15 colour steps (0 = z -2 … 7 = 0 … 14 = z +2) and * = significant (P < 0.05).
-   Columns follow GLIST order (13 pan-reactive, 12 A1-specific, 12 A2-specific).
-   ===================================================================== */
+// Fig. 1a data from Liddelow et al., 2017, read off the published heat map.
+// Each cell is one of the figure's 15 colour steps (0 = z -2, 7 = 0, 14 = z +2); * = significant (P < 0.05).
+// Columns follow GLIST order (13 pan-reactive, 12 A1-specific, 12 A2-specific).
 const FIG1A_STEPS = [[36, 66, 136], [57, 85, 165], [75, 102, 173], [101, 132, 194], [142, 182, 224], [183, 220, 231], [216, 236, 242], [255, 255, 255], [250, 203, 190], [246, 154, 127], [242, 118, 78], [240, 91, 41], [236, 63, 36], [185, 37, 39], [136, 25, 27]];               // the figure's own colour scale, -2 → +2
 const FIG1A_GROUPS = [2, 4, 8, 1, 6];               // rows per block, as spaced in the figure
 const FIG1A = [

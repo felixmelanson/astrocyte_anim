@@ -1,7 +1,5 @@
 'use strict';
-/* =====================================================================
-   SCENE 1 — tissue: "why purify"
-   ===================================================================== */
+// Scene 1 (steps 1-2): brain tissue, showing why the cell types need to be purified.
 const VES = (() => { const P = [[-80, 930], [500, 760], [1200, 520], [2000, 380]], pts = []; for (let i = 0; i <= 90; i++) { const s = i / 90, a = (1 - s) ** 3, b = 3 * (1 - s) ** 2 * s, c = 3 * (1 - s) * s * s, d = s ** 3; pts.push([a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0], a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1]]); } return pts; })();
 const VW = 44;
 function vesNear(x, y) { let best = 1e9, bp = null; for (const p of VES) { const d = Math.hypot(p[0] - x, p[1] - y); if (d < best) { best = d; bp = p; } } return [best, bp]; }
@@ -116,7 +114,7 @@ function drawTissue(c, t, o = {}) {
   for (const i of TIS.order) if (i === 0 || TIS.nb.includes(i)) tissueCell(c, i, t, o, 1);
 }
 
-/* ---- step 2: labels for the few cells left in focus, set outside the cluster on leader lines ---- */
+// Step 2: labels for the cells left in focus, placed outside the cluster on leader lines
 const FLAB = (() => {
   const h = TIS.hero, names = { astro: 'Astrocyte', micro: 'Microglia', neuron: 'Neuron', oligo: 'Oligodendrocyte' };
   const picks = [], seen = new Set();

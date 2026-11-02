@@ -1,7 +1,5 @@
 'use strict';
-/* =====================================================================
-   MOLECULE GLYPHS
-   ===================================================================== */
+// Drawings of the molecules: IL-1α, TNF, C1q, LPS, antibodies.
 function gIL1(c, s, a, col = PC.il1) {       // IL-1α: β-trefoil fold
   c.fillStyle = rgb(col, a); c.beginPath();
   for (let k = 0; k < 3; k++) { const an = k * TAU / 3 - Math.PI / 2, x = Math.cos(an) * s * .28, y = Math.sin(an) * s * .28; c.moveTo(x + s * .36, y); c.arc(x, y, s * .36, 0, TAU); }
@@ -14,7 +12,7 @@ function gTNF(c, s, a, col = PC.tnf) {       // TNF: homotrimer
     c.strokeStyle = rgb(mix(col, [0, 0, 0], .55), a * .7); c.lineWidth = .8; c.stroke(); c.restore();
   }
 }
-function gC1q(c, s, a, col = PC.c1q) {       // C1q: "bouquet of tulips" — collagen stalk + 6 globular heads
+function gC1q(c, s, a, col = PC.c1q) {       // C1q: "bouquet of tulips", collagen stalk + 6 globular heads
   c.strokeStyle = rgb(col, a); c.fillStyle = rgb(col, a); c.lineCap = 'round';
   c.lineWidth = s * .15; c.beginPath(); c.moveTo(0, s * .55); c.lineTo(0, s * .05); c.stroke();
   c.lineWidth = s * .07;

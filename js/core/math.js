@@ -1,5 +1,5 @@
 'use strict';
-/* Shared math / RNG / colour helpers used by every other module. */
+// Small math, random number and colour helpers used everywhere.
 const W = 1920, H = 1080, TAU = Math.PI * 2;
 
 const clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;

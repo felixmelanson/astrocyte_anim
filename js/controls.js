@@ -1,10 +1,6 @@
 'use strict';
-/* =====================================================================
-   VIEWER CONTROLS — play/pause, scrub, step nav, theme toggle.
-   Wires up the HTML control bar to the playback state in app.js.
-   Every scene render() call is a function of (step, t, gt), so scrubbing
-   just means freezing t and re-rendering — no separate "seek" logic needed.
-   ===================================================================== */
+// On-screen control bar (play/pause, scrub, previous/next, light/dark, fullscreen).
+// Connects the buttons in index.html to the playback functions in app.js.
 (function () {
   const scrubMax = () => (STEPS[step].dur || 30) + 1;   // seconds; each step's settle time + a little
 

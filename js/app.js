@@ -1,10 +1,8 @@
 'use strict';
-/* =====================================================================
-   Liddelow et al., 2017, Nature 541:481 — Methods animation
-   Presenter controls:  SPACE / → / PgDn = next   ← / PgUp = back
-                        R = replay step   F = fullscreen
-                        L = toggle light/dark   P = play/pause   URL hash #12 jumps to step 12
-   ===================================================================== */
+// Animation of the methods in Liddelow et al., 2017 (Nature 541:481).
+// This file sets up the canvas, lists every step, and runs the render loop.
+// Keys: space / right arrow / PgDn = next, left arrow / PgUp = back, R = replay step,
+// F = fullscreen, L = light/dark, P = play/pause. Adding #12 to the URL jumps to step 12.
 const cv = document.getElementById('c'); let ctx = cv.getContext('2d');   // ctx is swapped for an offscreen layer while a scene transition is composed
 const RENDER_MODE = new URLSearchParams(location.search).has('render');   // tools/*.mjs: no HUD, exact 1920×1080, no titles / footer
 // Video clips are a horizontal band of the 1920×1080 stage (titles are set on the slide, so top and bottom are trimmed).
@@ -22,15 +20,13 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
-/* =====================================================================
-   STEPS — one entry per presenter "click".
-   sc = scene (drives fades / dot separators), k = index inside that scene's function.
+/* One entry per click in the presentation.
+   sc = which scene function draws it (scene changes fade), k = index inside that scene's function.
    dur = seconds until the step has settled + 0.5 s (one video clip); busy = a crowded moment, for review.
    joins = opens on the previous step's last frame (no scene fade, previous heading fades out).
    morph = the step itself carries the previous step's last frame into its own (no generic cross-fade).
    t0 = first frame of the video clip (default 0); video:false = no clip (step 1 is a still).
-   Copy (cap / capEnd / sub) and the footer citation (cite) come from SCRIPT.md.
-   ===================================================================== */
+   cap / capEnd / sub are the on-screen title text; cite is the footer citation. */
 const STEPS = [
   { sc: 1, k: 0, slug: 'tissue', video: false, dur: 2.5, busy: 3.0 },   // no on-screen title: narration carries steps 1-2
   { sc: 1, k: 1, slug: 'who-caused-it', t0: 1.4, dur: 5.5, busy: 2.5 },   // clip opens already blurred (focus is complete at 1.4 s)
@@ -63,9 +59,7 @@ const STEPS = [
 ];
 const SCENES = [null, (...a) => scene1(...a), (...a) => scene2(...a), (...a) => scene3(...a), (...a) => scene4(...a), (...a) => scene5(...a)];
 
-/* =====================================================================
-   FRAME / HUD
-   ===================================================================== */
+// Drawing each frame: background, scene, captions, and transitions between steps.
 let VIG = null, EDG = null;
 // scene 1: deepens (dark) or whitens (light) the caption / footer bands over the busy tissue
 function edgeShade() {
@@ -157,9 +151,8 @@ function render(k, t, gt) {
   }
 }
 
-/* ---------------- playback: play / pause / scrub ----------------
-   Every scene function is a pure(ish) function of (step index, local time t,
-   global time gt), so freezing t and re-rendering is enough to scrub. ---- */
+// Play / pause / scrub. Each scene is drawn purely from (step, time in step t, global time gt),
+// so pausing or scrubbing just means holding t fixed and redrawing.
 let paused = false, pauseT = 0, pauseGT = 0;
 function setPaused(p) {
   p = !!p; if (p === paused) return;
@@ -192,9 +185,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 })();
 
-/* ---------------- deterministic hooks for tools/*.mjs ----------------
-   gtBase(k): global (idle-drift) clock at the start of step k when every step
-   before it played for exactly its `dur`, so consecutive clips line up. */
+// Hooks used by the video export scripts in tools/.
+// gtBase(k) is the global clock at the start of step k, assuming every earlier step played for
+// exactly its `dur`. That way consecutive clips line up.
 const gtBase = k => 50 + STEPS.slice(0, k).reduce((s, x) => s + (x.dur || 0), 0);
 window.__seek = (k, t, gt, prev, pt) => { frozen = true; step = k; prevStep = prev ?? k; prevT = pt ?? 99; render(k, t, gt ?? (gtBase(k) + t)); };
 window.__anim = {

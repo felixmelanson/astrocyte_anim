@@ -1,7 +1,5 @@
 'use strict';
-/* =====================================================================
-   SCENE 3 — serum-free culture
-   ===================================================================== */
+// Scene 3 (step 5): serum makes astrocytes reactive, so they are grown serum-free.
 const AST3b = [[-100, -84], [104, -92], [-92, 104], [112, 96]].map((p, i) => new Cell('astro', p[0], p[1], 640 + i * 5, 1.2, { drift: 9 }));
 
 // A culture dish tilting back from the top-down view into a petri dish seen from above-front: glass side wall, thick

@@ -1,7 +1,5 @@
 'use strict';
-/* =====================================================================
-   SCENE 2 — immunopanning
-   ===================================================================== */
+// Scene 2 (steps 3-4): dissociation, immunopanning, and the three purified cultures.
 const PLATES = [
   { x: 375, lab: 'BSL-1 lectin', kind: 'lectin' },
   { x: 765, lab: 'anti-CD45' },
@@ -77,7 +75,7 @@ function typeLegend(x, y, a, sc = 1, types = TYPES) {
     txt(TYPENAME[it.t], cx + 38 * sc, y, { a, size: 21 * sc, col: COL.legend }); cx += it.w + gap;
   }
 }
-const TLEG_Y = 850, TLEG_SC = 1.3;      // panning key: bigger, and higher now that the plate captions are gone
+const TLEG_Y = 850, TLEG_SC = 1.3;      // cell-type key under the plates
 const LEG_RD = { astro: new Round('astro', 3), micro: new Round('micro', 4), endo: new Round('endo', 5), oligo: new Round('oligo', 6), neuron: new Round('neuron', 8) };
 
 // Step k = 0 continues straight from step 2's tissue: papain digests the extracellular matrix,
@@ -95,7 +93,7 @@ function scene2(k, t, gt, S) {
   threeCultures(t, gt, S);
 }
 
-/* ---------------- dissociation ---------------- */
+// Dissociation
 // each suspension cell starts as a real cell of the same type in the tissue (endothelial cells
 // from the vessel wall), nearest the centre first
 const SUS_SRC = (() => {
@@ -239,13 +237,3 @@ function bracket(x0, x1, y, label, a, col) {      // a soft rule that fades out 
   txt(label, (x0 + x1) / 2, y - 16, { a, size: 26, w: 600, align: 'center', col });
 }
 function chevron(x, y, a) { if (a <= .004) return; ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = fg(.9); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x - 5, y - 9); ctx.lineTo(x + 5, y); ctx.lineTo(x - 5, y + 9); ctx.stroke(); ctx.restore(); }
-function compBar(x, y, w, h, ws, tot, label, a, final) {
-  if (a <= .004) return;
-  ctx.save(); ctx.globalAlpha *= a;
-  rr(x, y, w, h, h / 2); ctx.fillStyle = fg(.06); ctx.fill();
-  ctx.save(); rr(x, y, w, h, h / 2); ctx.clip();
-  let cx = x;
-  for (const ty of TYPES) { const ww = tot > 0 ? w * ws[ty] / tot : 0; if (ww <= 0) continue; ctx.fillStyle = rgb(ty === 'astro' ? TP.astro.rim : mix(TP[ty].rim, [0, 0, 0], .15)); ctx.fillRect(cx, y, ww, h); cx += ww; }
-  ctx.restore(); ctx.restore();
-  txt(label, x, y - 12, { a, size: 15, ls: 1, col: COL.dim });
-}

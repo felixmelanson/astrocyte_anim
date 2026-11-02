@@ -1,7 +1,7 @@
 'use strict';
-/* =====================================================================
-   SCENE 4 — the relay
-   ===================================================================== */
+// Scene 4 (steps 7-14): conditioned medium passed from microglia to astrocytes to RGCs.
+// Not drawn, but kept: every Cell takes the next id, and ids seed how dying neurites break up,
+// so removing these would change the look of the RGC deaths below.
 const MINI_A = new Cell('astro', 0, 0, 411, .3, { drift: 0 });
 const MINI_N = new Cell('neuron', 0, 0, 522, .28, { axAng: .6, axLen: 120, drift: 0 });
 // dose-response wells: 20 RGCs each; survivors 20/19/11/0 ≈ 100/97/55/2 %
@@ -26,18 +26,6 @@ const F = {
 const DOTS = { mcm: ['il1', 'tnf', 'other', 'c1q', 'other', 'il1', 'tnf', 'other', 'c1q', 'other'], lps: Array(8).fill('lps'), cyto: ['il1', 'tnf', 'c1q', 'il1', 'tnf', 'c1q', 'il1', 'tnf'], rest: Array(5).fill('other'), nab: ['gray', 'ab', 'other', 'gray', 'ab', 'other', 'gray', 'ab'], acm: ['tox', 'other', 'tox', 'tox', 'other', 'tox', 'other', 'tox'], conc: Array(12).fill(0).map((_, i) => i % 3 ? 'tox' : 'other') };
 const LIQ = {   // dark-theme medium colours; liqC() lightens them for the light theme
   mcm: [58, 72, 84], lps: [70, 76, 80], cyto: [66, 72, 70], rest: [52, 64, 74], acm: [92, 64, 62], conc: [120, 70, 64] };
-// Results panel along the bottom: two groups (astrocyte response, RGC survival).
-// step = the scene-4 step (k) whose result produces the item.
-const CARDS = [
-  { l: 'LPS directly', res: 'No change', step: 1 },
-  { l: 'Activated microglia medium', res: 'A1', step: 2 },
-  { l: 'Resting microglia medium', res: 'No change', step: 2 },
-  { l: 'IL-1α + TNF + C1q', res: 'A1', step: 3 },
-  { l: 'Activated microglia medium + nAbs', res: 'No change', step: 4 },
-  { l: 'A1 astrocyte medium', res: 'Death', step: 5 },
-  { l: 'Activated microglia medium', res: 'Survival', step: 7 },
-  { l: 'IL-1α + TNF + C1q', res: 'Survival', step: 7 },
-];
 // Dishes are the same tilted petri dishes as step 5 (tiltDish in scene3.js). DYR = centre of the rim ellipse of a
 // full-size dish; contents are drawn on the floor, FY, one wall-height below it.
 const RT = 1.08;                                   // tilt, in tiltDish units (about 56 degrees)
@@ -45,20 +33,12 @@ const rKy = () => tiltK(RT), rWall = r => tiltWall(r, RT), rRy = r => r * rKy();
 const DYR = 350, FY = DYR + rWall(DR);             // floor centre of the full-size dishes
 const rimTop = r => FY - rWall(r) - rRy(r);         // top of a dish's rim ellipse
 const NAME_Y = FY + rRy(DR) + 46;                  // dish names sit under the front glass
-// results table under the dishes: one row per earned result, newest row at full strength
-const STAGE = { s: 1, y: 178 };
-const sx = x => x, sy = y => y;
-function stageBegin() { ctx.save(); }
 
 const POS = {
   M: { x: DX.M, y: FY }, A: { x: DX.A, y: FY }, N: { x: DX.N, y: FY, lift: 120 },
   vialL: { x: 660, y: 280, arcUp: 100 }, vialR: { x: 1260, y: 290 }, well: { x: 660, y: 300 }, filt: { x: 1260, y: 300 },
   R: { x: 660, y: FY },                            // the small resting-microglia dish of step 9
 };
-const MN = { x: DX.M, y: FY };
-// in vivo AQP4 inset (Ext. Data Fig. 5a) during the microglia-medium step; off since the declutter pass
-// (an in vivo marker squeezed between two in vitro dishes). Set true to bring it back.
-const SHOW_AQP4_INSET = false;
 // k = scene-4 step: 0 intro · 1 LPS direct · 2 LPS→microglia→astrocytes (+ resting control) · 3 cocktail
 //                    4 nAbs · 5 concentrate ACM → RGCs · 6 dose wells · 7 both RGC controls
 function scene4(k, t, gt, S) {
@@ -330,7 +310,7 @@ function drawLegend(st) {
     x += (it.w + gap) * it.v;
   }
 }
-// ---- flowchart under the dishes: builds step by step, one idea per addition ----
+// Flowchart under the dishes, built up one piece per step
 // main lane: LPS → Microglia → secreted factors → Astrocytes → (unknown factor) → RGCs.
 // lower lane: every treatment applied straight to a dish, pointing at it, with its result underneath.
 const FLY = { A: 748, B: 852, bus: 802 };
@@ -453,40 +433,6 @@ function drawWells(t, gt, a) {
     txt(D.d + ' µg/ml', x, fy - Hw - ry - 14, { a, size: 24, w: 600, align: 'center' });
     txt(D.s, x, fy + ry + 46, { a: sc, size: 34, w: 700, align: 'center', col: D.n > 15 ? COL.teal : D.n > 5 ? UI.midSurv : COL.coral });
   });
-}
-function drawAQP4(x, y, r, rr_, a, gt) {
-  ctx.save(); ctx.globalAlpha *= a;
-  ctx.fillStyle = rgb(UI.lumen); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-  ctx.save(); clipCircle(x, y, r - 1);
-  const vx = x - 16, vy = y + 24, vr = 36;
-  ctx.strokeStyle = rgb(TP.endo.rim); ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(vx, vy, vr, 0, TAU); ctx.stroke();
-  ctx.strokeStyle = rgb(TP.endo.body); ctx.lineWidth = 6.5; ctx.beginPath(); ctx.arc(vx, vy, vr, 0, TAU); ctx.stroke();
-  const pal = palMix(TP.astro, CORAL, sstep(seg(rr_, .05, .6)));
-  const sx = x + 46, sy = y - 52;
-  const endA0 = -3.55, endA1 = -.05, er = vr + 8;
-  const shape = ex => {
-    ctx.beginPath();
-    const pts = []; for (let i = 0; i <= 18; i++) { const an = lerp(endA0, endA1, i / 18); pts.push(vx + Math.cos(an) * er, vy + Math.sin(an) * er); }
-    addStrand(ctx, { pts, ws: Array(19).fill(0).map((_, i) => 7 + 2 * Math.sin(i / 18 * Math.PI)), n: 18 }, ex);
-    const mx = vx + Math.cos(-1.05) * er, my = vy + Math.sin(-1.05) * er;
-    const pp = []; for (let i = 0; i <= 10; i++) { const u = i / 10; pp.push(lerp(mx, sx, u) + Math.sin(u * Math.PI) * 8, lerp(my, sy, u)); }
-    addStrand(ctx, { pts: pp, ws: Array(11).fill(0).map((_, i) => lerp(5, 7, i / 10)), n: 10 }, ex);
-    ctx.moveTo(sx + 12 + ex, sy); ctx.arc(sx, sy, 12 + ex, 0, TAU);
-  };
-  shape(1.4); ctx.fillStyle = rgb(pal.rim); ctx.fill(); shape(0); ctx.fillStyle = rgb(pal.body); ctx.fill();
-  ctx.fillStyle = rgb(pal.nuc); ctx.beginPath(); ctx.ellipse(sx, sy, 6, 5, .4, 0, TAU); ctx.fill();
-  const R = rng(4242), k = ease(rr_);
-  for (let i = 0; i < 44; i++) {
-    const an = lerp(endA0 + .1, endA1 - .1, R()), home = [vx + Math.cos(an) * (er + (R() - .5) * 4), vy + Math.sin(an) * (er + (R() - .5) * 4)];
-    const u = R(), dsp = u < .45 ? [sx + (R() - .5) * 20, sy + (R() - .5) * 20] : [lerp(vx + Math.cos(-1.05) * er, sx, R()) + (R() - .5) * 8, lerp(vy + Math.sin(-1.05) * er, sy, R()) + (R() - .5) * 6];
-    const px = lerp(home[0], dsp[0], k), py = lerp(home[1], dsp[1], k);
-    ctx.fillStyle = rgb(UI.aqpDot, .95); ctx.beginPath(); ctx.arc(px, py, 1.7, 0, TAU); ctx.fill();
-  }
-  ctx.restore();
-  ctx.strokeStyle = fg(.45); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
-  ctx.restore();
-  txt('in vivo · AQP4', x, y - r - 12, { a, size: 13, w: 600, ls: 2, align: 'center', col: COL.dim });
-  txt(rr_ > .5 ? 'leaves the endfoot' : 'on the endfoot', x, y + r + 22, { a, size: 14, align: 'center', col: COL.dim });
 }
 function drawNabWell(x, y, r, t, gt, W_) {
   const a = W_.a;
