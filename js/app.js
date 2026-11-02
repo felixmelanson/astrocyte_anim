@@ -96,7 +96,6 @@ addEventListener('keydown', e => {
   else if (e.key === 'l' || e.key === 'L') { setThemeMode(THEME.light ? 'dark' : 'light'); onThemeChange(); }
   else if (e.key === 'p' || e.key === 'P') { setPaused(!paused); }
 });
-let idleT; addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 1800); });
 
 function applyTheme() {
   THEME.light = THEME.mode === 'light';

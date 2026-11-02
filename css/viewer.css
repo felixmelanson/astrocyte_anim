@@ -1,8 +1,6 @@
 html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; }
 canvas { position: absolute; display: block; }
-body.idle { cursor: none; }
 body.render #controls { display: none; }   /* ?render=1: offline frame capture (tools/) */
-body.idle #controls { opacity: 0; pointer-events: none; }
 
 #controls {
   position: fixed;
@@ -22,10 +20,8 @@ body.idle #controls { opacity: 0; pointer-events: none; }
   font-family: "Inter", "Helvetica Neue", "Segoe UI", Helvetica, Arial, sans-serif;
   color: #e0e8ee;
   z-index: 10;
-  transition: opacity .25s ease;
   user-select: none;
 }
-#controls:hover { opacity: 1 !important; pointer-events: auto; }
 
 #controls button {
   appearance: none;
@@ -66,9 +62,4 @@ body.idle #controls { opacity: 0; pointer-events: none; }
   #controls input[type="range"] { width: 110px; }
   #controls button.wide span.label-text { display: none; }
   #controls button.phone-hide { display: none; }
-}
-
-/* Touch devices (phones/tablets) have no hover-to-reveal, so never idle-hide the bar */
-@media (pointer: coarse) {
-  body.idle #controls { opacity: 1 !important; pointer-events: auto !important; }
 }
